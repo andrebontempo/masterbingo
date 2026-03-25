@@ -100,34 +100,10 @@
         display: contents !important;
       }
 
-      /* Sequential Reordering for Mobile */
-      header {
-        order: 1 !important;
-      }
-
-      .hero-stage {
-        order: 2 !important;
-      }
-
-      .controls-panel {
-        order: 3 !important;
-      }
-
-      .board-glass {
-        order: 4 !important;
-      }
-
-      .history-panel {
-        order: 5 !important;
-      }
-
-      .players-panel {
-        order: 6 !important;
-      }
-
-      .qr-panel {
-        order: 7 !important;
-      }
+      /* Sequential Reordering for Mobile (Disabled as it conflicted with global layout) */
+      /* header { order: 1 !important; } */
+      /* .hero-stage { order: 2 !important; } */
+      /* ... */
     }
 
     @media (max-width: 600px) {
@@ -459,9 +435,9 @@
     }
 
     .btn-cyber:hover {
-      background: var(--surface-opaque);
-      border-color: var(--primary);
-      transform: translateY(-2px);
+      transform: translateY(-4px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      filter: brightness(1.25);
     }
 
     .btn-primary-cyber {

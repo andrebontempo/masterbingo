@@ -33,15 +33,10 @@ export default function EsqueceuSenhaPage() {
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center" style={{ background: 'var(--bg-dark)', color: 'white' }}>
-      <Container style={{ maxWidth: '440px' }}>
+    <>
+      <Container style={{ maxWidth: '440px' }} className="py-5">
         <div className="cyber-panel p-4 p-md-5" style={{ background: 'var(--surface)', border: '2px solid var(--border)', borderTop: '4px solid var(--primary)', borderRadius: '16px' }}>
           
-          {/* Logo */}
-          <div className="text-center mb-4">
-            <h2 style={{ fontFamily: 'var(--font-syncopate)', color: 'var(--primary)', letterSpacing: '4px', fontSize: '1.2rem' }}>MASTER BINGO</h2>
-          </div>
-
           <h3 className="text-light fw-bold mb-1" style={{ fontSize: '1.1rem' }}>Esqueceu sua senha?</h3>
           <p className="opacity-50 small mb-4">Informe seu e-mail e enviaremos um link para redefinir sua senha.</p>
 
@@ -80,6 +75,6 @@ export default function EsqueceuSenhaPage() {
           </div>
         </div>
       </Container>
-    </div>
+    </>
   );
 }

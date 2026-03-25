@@ -2,7 +2,8 @@ import { Syncopate, Inter } from "next/font/google";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
 import { Providers } from "../providers";
-import ThemeToggle from "@/components/ThemeToggle";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 const syncopate = Syncopate({
   weight: ['400', '700'],
@@ -35,7 +36,19 @@ export default function RootLayout({ children }) {
         `}} />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          <div className="min-vh-100 d-flex flex-column" style={{ 
+            background: 'radial-gradient(circle at top right, #0a192f, #020617)', 
+            color: 'white',
+            overflowX: 'hidden'
+          }}>
+            <Header />
+            <main className="flex-grow-1">
+              {children}
+            </main>
+            <Footer />
+          </div>
+        </Providers>
       </body>
     </html>
   );

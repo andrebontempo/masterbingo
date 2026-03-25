@@ -58,30 +58,11 @@ export default function RegistrarPage() {
   };
 
   return (
-    <div className="min-vh-100 d-flex flex-column" style={{ 
-      background: 'radial-gradient(circle at top right, #0a192f, #020617)', 
-      color: 'white'
-    }}>
+    <>
       <Toaster position="top-right" />
 
-      {/* --- HEADER --- */}
-      <header className="py-5 border-bottom" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(2,6,23,0.8)', backdropFilter: 'blur(10px)' }}>
-        <Container className="d-flex justify-content-between align-items-center">
-          <div className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
-            <h1 className="mb-0 fw-bold" style={{ 
-              fontFamily: 'var(--font-syncopate)', 
-              fontSize: '1.8rem', 
-              letterSpacing: '4px',
-              color: 'var(--primary, #00f2ff)'
-            }}>
-              MASTER BINGO
-            </h1>
-          </div>
-        </Container>
-      </header>
-
       {/* --- FORM SECTION --- */}
-      <main className="flex-grow-1 d-flex align-items-center py-5">
+      <div className="flex-grow-1 d-flex align-items-center py-5">
         <Container>
           <Row className="justify-content-center">
             <Col lg={6} xl={5}>
@@ -188,13 +169,7 @@ export default function RegistrarPage() {
             </Col>
           </Row>
         </Container>
-      </main>
-
-      <footer className="py-4 border-top" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(2,6,23,0.5)' }}>
-        <Container className="text-center opacity-30 small">
-          <p className="mb-0">© 2026 Master Bingo</p>
-        </Container>
-      </footer>
-    </div>
+      </div>
+    </>
   );
 }

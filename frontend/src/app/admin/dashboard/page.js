@@ -67,19 +67,23 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-vh-100" style={{ background: "var(--bg-dark)", color: "white" }}>
-      <Container fluid="lg" className="py-4 py-md-5">
+    <>
+      <Container fluid="lg" className="py-3 py-md-4">
 
-        {/* ─── HEADER ─── */}
-        <header
-          className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-5 pb-4"
-          style={{ borderBottom: "1px solid rgba(239,68,68,0.2)" }}
+        {/* ─── SUB-HEADER ─── */}
+        <div
+          className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 p-3 rounded-4"
+          style={{ 
+            backgroundColor: 'rgba(2,6,23,0.4)',
+            border: "1px solid rgba(239,68,68,0.2)",
+            backdropFilter: 'blur(10px)'
+          }}
         >
           <div>
             <div className="d-flex align-items-center gap-2 mb-1">
               <span style={{ fontSize: "1.4rem" }}>🛡️</span>
               <h1 className="mb-0 text-light fw-bold" style={{ fontSize: "clamp(1.2rem, 3.5vw, 1.8rem)", letterSpacing: "1px" }}>
-                ADMINISTRADOR
+                PAINEL ADMINISTRATIVO
               </h1>
               <span
                 className="badge ms-1"
@@ -94,16 +98,15 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="d-flex gap-2">
-            <button className="btn btn-outline-secondary btn-sm fw-bold px-3" onClick={fetchRooms}>🔄 Atualizar</button>
-            <button className="btn btn-outline-danger btn-sm fw-bold px-3" onClick={logout}>⏻ SAIR</button>
+            <button className="btn btn-outline-secondary btn-sm fw-bold px-3" style={{ borderRadius: '12px' }} onClick={fetchRooms}>🔄 Atualizar</button>
           </div>
-        </header>
+        </div>
 
         {/* ─── STATS ─── */}
         <Row className="g-3 mb-5">
           {stats.map((s, i) => (
             <Col xs={6} md={3} key={i}>
-              <div className="text-center p-3 rounded-3" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${s.color}33` }}>
+              <div className="text-center p-3 rounded-4 shadow-sm" style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${s.color}33`, backdropFilter: 'blur(5px)' }}>
                 <div className="fw-bold" style={{ fontSize: "clamp(1.8rem, 5vw, 2.4rem)", color: s.color }}>
                   {loading ? "—" : s.value}
                 </div>
@@ -116,7 +119,7 @@ export default function AdminDashboard() {
         </Row>
 
         {/* ─── TABELA DE SALAS ─── */}
-        <div className="cyber-panel p-4" style={{ borderRadius: "24px", border: "1px solid rgba(239,68,68,0.15)" }}>
+        <div className="cyber-panel p-4" style={{ borderRadius: "24px", border: "1px solid rgba(255,255,255,0.05)", background: 'rgba(255,255,255,0.01)' }}>
           <h2 className="text-light fw-bold mb-4" style={{ fontFamily: "var(--font-syncopate)", fontSize: "0.85rem", opacity: 0.6 }}>
             TODAS AS SALAS ATIVAS
           </h2>
@@ -136,8 +139,8 @@ export default function AdminDashboard() {
               {rooms.map(room => (
                 <div
                   key={room.roomId}
-                  className="d-flex justify-content-between align-items-center p-3 rounded-3 flex-wrap gap-3"
-                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  className="d-flex justify-content-between align-items-center p-3 rounded-4 flex-wrap gap-3 shadow-sm"
+                  style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}
                 >
                   <div className="d-flex align-items-center gap-4 flex-wrap">
                     <div>
@@ -165,6 +168,7 @@ export default function AdminDashboard() {
                   </div>
                   <button
                     className="btn btn-outline-danger btn-sm fw-bold px-3"
+                    style={{ borderRadius: '10px' }}
                     disabled={closing === room.roomId}
                     onClick={() => closeRoom(room.roomId)}
                   >
@@ -180,6 +184,6 @@ export default function AdminDashboard() {
           Fechar uma sala remove permanentemente todos os dados associados.
         </p>
       </Container>
-    </div>
+    </>
   );
 }

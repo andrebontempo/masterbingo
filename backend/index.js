@@ -118,6 +118,7 @@ io.on('connection', (socket) => {
       roomId: data.roomId
     };
     io.to(data.roomId).emit('chat_message', msg);
+    io.to(data.roomId).emit('special_called', data);
     
     try {
       const Room = require('./models/Room');

@@ -57,14 +57,10 @@ export default function ResetarSenhaPage() {
   };
 
   return (
-    <div className="min-vh-100 d-flex align-items-center justify-content-center" style={{ background: 'var(--bg-dark)', color: 'white' }}>
-      <Container style={{ maxWidth: '440px' }}>
+    <>
+      <Container style={{ maxWidth: '440px' }} className="py-5">
         <div className="cyber-panel p-4 p-md-5" style={{ background: 'var(--surface)', border: '2px solid var(--border)', borderTop: '4px solid var(--primary)', borderRadius: '16px' }}>
           
-          <div className="text-center mb-4">
-            <h2 style={{ fontFamily: 'var(--font-syncopate)', color: 'var(--primary)', letterSpacing: '4px', fontSize: '1.2rem' }}>MASTER BINGO</h2>
-          </div>
-
           {tokenValid === null && (
             <div className="text-center py-4 opacity-50">
               <Spinner animation="border" size="sm" className="me-2" />
@@ -133,6 +129,6 @@ export default function ResetarSenhaPage() {
           </div>
         </div>
       </Container>
-    </div>
+    </>
   );
 }

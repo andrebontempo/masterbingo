@@ -7,56 +7,9 @@ export default function LandingPage() {
   const router = useRouter();
 
   return (
-    <div className="min-vh-100 d-flex flex-column" style={{ 
-      background: 'radial-gradient(circle at top right, #0a192f, #020617)', 
-      color: 'white',
-      overflowX: 'hidden'
-    }}>
-      
-      {/* --- HEADER --- */}
-      <header className="py-5 border-bottom shadow-sm" style={{ 
-          borderColor: 'rgba(255,255,255,0.05)', 
-          backgroundColor: 'rgba(2,6,23,0.9)', 
-          backdropFilter: 'blur(10px)', 
-          position: 'sticky', top: 0, zIndex: 1000 
-      }}>
-        <Container className="d-flex justify-content-between align-items-center">
-          {/* Logo */}
-          <div className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
-            <h1 className="mb-0 fw-bold" style={{ 
-              fontFamily: 'var(--font-syncopate)', 
-              fontSize: '1.8rem', 
-              letterSpacing: '4px',
-              color: 'var(--primary, #00f2ff)'
-            }}>
-              MASTER BINGO
-            </h1>
-          </div>
-
-          {/* Auth Links (InMemoriam Style) */}
-          <div className="d-flex gap-4 align-items-center">
-             <button 
-                onClick={() => router.push('/registrar')} 
-                className="btn btn-link text-white text-decoration-none d-flex align-items-center gap-2 p-0"
-                style={{ fontSize: '0.9rem', fontWeight: 500 }}
-             >
-                <span style={{ color: 'var(--primary, #00f2ff)' }}><i className="bi bi-person-plus"></i></span>
-                <span className="opacity-80">Criar uma conta</span>
-             </button>
-             <button 
-                onClick={() => router.push('/organizador')} 
-                className="btn btn-link text-white text-decoration-none d-flex align-items-center gap-2 p-0"
-                style={{ fontSize: '0.9rem', fontWeight: 500 }}
-             >
-                <span style={{ color: 'var(--primary, #00f2ff)' }}><i className="bi bi-box-arrow-in-right"></i></span>
-                <span className="opacity-80">Entre</span>
-             </button>
-          </div>
-        </Container>
-      </header>
-
+    <>
       {/* --- MAIN HERO --- */}
-      <main className="flex-grow-1 d-flex align-items-center py-5">
+      <section className="d-flex align-items-center py-4">
         <Container>
           <Row className="gy-5 align-items-center">
             
@@ -84,7 +37,7 @@ export default function LandingPage() {
                     WebkitTextFillColor: 'transparent' 
                 }}>Eventos e Lives</span>
               </h1>
-              <p className="fs-5 opacity-60 mb-5 pe-lg-5" style={{ lineHeight: '1.6' }}>
+              <p className="fs-5 opacity-60 mb-4 pe-lg-5" style={{ lineHeight: '1.6' }}>
                 A plataforma completa para gerenciar sorteios profissionais em festas, conferências e transmissões ao vivo. 
                 Gere cartelas digitais instantaneamente e controle tudo em tempo real.
               </p>
@@ -152,21 +105,7 @@ export default function LandingPage() {
 
           </Row>
         </Container>
-      </main>
-
-      {/* --- FOOTER --- */}
-      <footer className="py-4 border-top" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(2,6,23,0.5)' }}>
-        <Container className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
-          <p className="mb-0 opacity-30 small">© 2026 Master Bingo • Sua plataforma premium de eventos.</p>
-          <div className="d-flex gap-4 opacity-50 small">
-              <span style={{ cursor: 'pointer' }}>Privacidade</span>
-              <span style={{ cursor: 'pointer' }}>Termos</span>
-              <span style={{ cursor: 'pointer' }}>Suporte</span>
-          </div>
-        </Container>
-      </footer>
-
-      {/* Link to Bootstrap Icons in layout.js should be present. */}
-    </div>
+      </section>
+    </>
   );
 }

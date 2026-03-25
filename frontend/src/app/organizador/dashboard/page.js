@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSocket } from "@/context/SocketContext";
-import { Container, Row, Col, Badge, Spinner } from "react-bootstrap";
+import { Container, Row, Col, Badge, Spinner, Button, InputGroup, Form as RBForm } from "react-bootstrap";
 import { QRCodeSVG } from "qrcode.react";
+import { toast, Toaster } from "react-hot-toast";
 
 export default function AdminDashboard() {
   const socket = useSocket();
@@ -18,13 +19,25 @@ export default function AdminDashboard() {
   const [autoMode, setAutoMode] = useState(0);
   const [players, setPlayers] = useState([]); // Nova lista de jogadores
   const [isLocked, setIsLocked] = useState(false); // Trancar sala
+  const isLockedRef = useRef(isLocked);
+
+  useEffect(() => {
+    isLockedRef.current = isLocked;
+  }, [isLocked]);
+
   const [messages, setMessages] = useState([]); // Mensagens do Chat
   const [chatInput, setChatInput] = useState(""); // Input de chat
-
   const [voices, setVoices] = useState([]);
   const [selectedVoiceType, setSelectedVoiceType] = useState('male');
   const [frontendUrl, setFrontendUrl] = useState('');
   const [adminRooms, setAdminRooms] = useState([]); // Histórico de salas do admin
+  const chatMessagesRef = useRef(null);
+
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -48,10 +61,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (admin?._id && !roomId) {
       const fetchAdminRooms = async () => {
-         try {
-           const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/organizador/${admin._id}`);
-           if (res.ok) setAdminRooms(await res.json());
-         } catch(e) { console.error(e); }
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/organizador/${admin._id}`);
+          if (res.ok) setAdminRooms(await res.json());
+        } catch (e) { console.error(e); }
       };
       fetchAdminRooms();
     }
@@ -71,16 +84,43 @@ export default function AdminDashboard() {
       socket.on('chat_message', (msg) => {
         setMessages(prev => [...prev, msg]);
       });
+      socket.on('special_called', (data) => {
+        // Usamos o Ref para checar o valor ATUAL e travamos a execução dupla imediatamente
+        if (isLockedRef.current === true) {
+          isLockedRef.current = false; // Bloqueia execuções subsequentes instantaneamente
+          
+          // Trava no backend
+          fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${roomId}/lock`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isLocked: false })
+          });
+          
+          setIsLocked(false);
+          setAutoMode(0);
+
+          if (socket) {
+            socket.emit('chat_message', {
+              sender: 'SISTEMA',
+              text: '⏸ BINGO PARADO AUTOMATICAMENTE. Aguardem Verificação...',
+              type: 'system',
+              time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
+              roomId
+            });
+          }
+        }
+      });
       socket.on('player_joined', (data) => {
         setPlayers(prev => {
           if (prev.some(p => p.name === data.name)) return prev;
           return [...prev, { name: data.name }];
         });
       });
-      
+
       return () => {
         socket.off('connect', handleConnect);
         socket.off('chat_message');
+        socket.off('special_called');
         socket.off('player_joined');
       };
     }
@@ -114,21 +154,21 @@ export default function AdminDashboard() {
 
   const getVoice = () => {
     const ptVoices = voices.filter(v => v.lang.toLowerCase().includes("pt"));
-    
+
     if (ptVoices.length === 0) return voices[0]; // Fallback universal
 
     if (selectedVoiceType === 'female') {
-      const female = ptVoices.find(v => 
-        v.name.toLowerCase().includes("female") || 
-        v.name.toLowerCase().includes("maria") || 
-        v.name.toLowerCase().includes("luciana") || 
+      const female = ptVoices.find(v =>
+        v.name.toLowerCase().includes("female") ||
+        v.name.toLowerCase().includes("maria") ||
+        v.name.toLowerCase().includes("luciana") ||
         v.name.toLowerCase().includes("google português")
       );
       return female || ptVoices[0];
     } else {
-      const male = ptVoices.find(v => 
-        v.name.toLowerCase().includes("male") || 
-        v.name.toLowerCase().includes("daniel") || 
+      const male = ptVoices.find(v =>
+        v.name.toLowerCase().includes("male") ||
+        v.name.toLowerCase().includes("daniel") ||
         v.name.toLowerCase().includes("felipe") ||
         v.name.toLowerCase().includes("google português")
       );
@@ -184,18 +224,18 @@ export default function AdminDashboard() {
         setGameMode(data.gameMode);
         setIsLocked(data.isLocked || false);
         setMessages([]); // Mensagens não são persistidas a princípio
-        
+
         // Mapear drawnNumbers do banco para o estado local
         const drawn = data.drawnNumbers || [];
         setCalledNumbers(drawn);
-        
+
         // Restaurar histórico
         const hist = drawn.map(n => ({ number: n, time: new Date().toLocaleTimeString() }));
         setHistory(hist);
-        
+
         // Restaurar jogadores
         setPlayers(data.players || []);
-        
+
         if (drawn.length > 0) {
           setLastDrawn(drawn[drawn.length - 1]);
         } else {
@@ -225,14 +265,22 @@ export default function AdminDashboard() {
         if (!isLocked && socket) {
           socket.emit('chat_message', {
             sender: 'SISTEMA',
-            text: '🎯 COMEÇOU O BINGO! Boa sorte a todos!',
+            text: '🎯 BINGO EM ANDAMENTO. Boa sorte a Todos!!!',
+            type: 'system',
+            time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
+            roomId
+          });
+        } else if (isLocked && socket) {
+          socket.emit('chat_message', {
+            sender: 'SISTEMA',
+            text: '⏸ BINGO PARADO. Aguardem...',
             type: 'system',
             time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
             roomId
           });
         }
       }
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
   };
 
   const sendMessage = (e) => {
@@ -249,12 +297,18 @@ export default function AdminDashboard() {
     setChatInput("");
   };
 
+  const copyRoomUrl = () => {
+    const url = `${frontendUrl}/jogar?room=${roomId}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link copiado para a área de transferência!");
+  };
+
   const closeRoomManually = async (rid) => {
     if (!window.confirm(`Deseja fechar permanentemente a sala ${rid}?`)) return;
     try {
       await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${rid}`, { method: 'DELETE' });
       setAdminRooms(prev => prev.filter(r => r.roomId !== rid));
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
   };
 
   async function drawNumber() {
@@ -314,16 +368,18 @@ export default function AdminDashboard() {
   const getDisplayNumber = (num, mMode, locked = false) => {
     if (!num) return (
       <div style={{ textAlign: 'center' }}>
-        <span style={{ 
-          fontSize: 'clamp(0.9rem, 2vw, 1.4rem)', 
-          fontWeight: '700',
-          letterSpacing: '5px', 
+        <span style={{
+          fontSize: 'clamp(1.2rem, 4vw, 2.2rem)',
+          fontWeight: '900',
+          letterSpacing: '8px',
           color: locked ? 'var(--accent)' : 'var(--primary)',
-          textShadow: '0 0 20px currentColor',
+          textShadow: locked ? '0 0 30px var(--accent)' : '0 0 30px var(--primary)',
           textTransform: 'uppercase',
-          fontFamily: 'var(--font-syncopate)'
+          fontFamily: 'var(--font-syncopate)',
+          lineHeight: '1.4',
+          display: 'block'
         }}>
-          {locked ? <>COMEÇOU O<br />BINGO</> : <>AGUARDANDO<br />JOGADORES</>}
+          {locked ? <>BINGO EM<br />ANDAMENTO</> : <>AGUARDANDO<br />JOGADORES</>}
         </span>
       </div>
     );
@@ -335,12 +391,13 @@ export default function AdminDashboard() {
     return `${num}`;
   };
 
-  const switchMode = (m) => {
-    setGameMode(m);
-    setRoomId(null);
-    setCalledNumbers([]);
-    setLastDrawn(null);
-    setHistory([]);
+  const startAutoDraw = (interval) => {
+    setAutoMode(interval);
+  };
+
+  const drawManual = () => {
+    setAutoMode(0);
+    drawNumber();
   };
 
   const renderCols = () => {
@@ -372,53 +429,22 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-vh-100 d-flex flex-column" style={{ 
-        background: 'radial-gradient(circle at top right, #0a192f, #020617)', 
-        color: 'white' 
-    }}>
-      <Container fluid className="py-4 py-md-5 px-3 px-xl-5 mx-auto" style={{ maxWidth: '1600px' }}>
+    <>
+      <Toaster position="top-right" />
+      <Container fluid className="py-3 py-md-4 px-3 px-xl-5 mx-auto" style={{ maxWidth: '1600px' }}>
         {!roomId ? (
           <>
-            {/* --- PREMIUM HEADER --- */}
-            <header className="py-5 border-bottom shadow-sm mb-5" style={{ 
-                borderColor: 'rgba(255,255,255,0.05)', 
-                backgroundColor: 'rgba(2,6,23,0.8)', 
-                backdropFilter: 'blur(10px)'
-            }}>
-              <Container fluid className="px-3 px-xl-5 d-flex justify-content-between align-items-center">
-                {/* Logo */}
-                <div className="d-flex align-items-center gap-2" style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
-                  <h1 className="mb-0 fw-bold" style={{ 
-                    fontFamily: 'var(--font-syncopate)', 
-                    fontSize: '1.8rem', 
-                    letterSpacing: '4px',
-                    color: 'var(--primary, #00f2ff)'
-                  }}>
-                    MASTER BINGO
-                  </h1>
-                </div>
-
-                {/* User Info and Logout */}
-                <div className="d-flex align-items-center gap-4">
-                  <div className="d-none d-md-flex align-items-center gap-2">
-                    <span className="opacity-50 small text-uppercase fw-bold" style={{ letterSpacing: '1px' }}>Bem-vindo(a):</span>
-                    <span className="fw-bold" style={{ color: 'var(--primary, #00f2ff)' }}>
-                        {admin?.firstName} {admin?.lastName}
-                    </span>
-                  </div>
-                  <button
-                    className="btn btn-outline-danger btn-sm fw-bold px-4 py-2"
-                    style={{ borderRadius: '12px', letterSpacing: '1px', border: '1px solid rgba(220, 53, 69, 0.3)' }}
-                    onClick={() => {
-                      localStorage.removeItem('organizadorData');
-                      router.push('/');
-                    }}
-                  >
-                    ⏻ Sair
-                  </button>
-                </div>
-              </Container>
-            </header>
+            <div className="mb-4 text-center">
+              <h1 className="text-light fw-bold mb-0" style={{
+                fontFamily: 'var(--font-syncopate)',
+                fontSize: '1.2rem',
+                letterSpacing: '4px',
+                color: 'var(--primary, #00f2ff)'
+              }}>
+                PAINEL DE CONTROLE
+              </h1>
+            </div>
+            {/* ─── CONTEÚDO PRINCIPAL ─── */}
 
             {/* ─── CONTEÚDO PRINCIPAL ─── */}
             <Row className="g-4 align-items-stretch">
@@ -431,11 +457,11 @@ export default function AdminDashboard() {
                       <path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H2z" />
                     </svg>
                   </div>
-                  <h2 className="text-light fw-bold mb-3" style={{ fontFamily: 'var(--font-syncopate)', fontSize: 'clamp(1rem, 3vw, 1.5rem)' }}>NOVA PARTIDA</h2>
+                  <h2 className="text-light fw-bold mb-3" style={{ fontFamily: 'var(--font-syncopate)', fontSize: 'clamp(1rem, 3vw, 1.5rem)' }}>ABRIR NOVA SALA</h2>
                   <p className="text-light opacity-60 mb-2" style={{ maxWidth: '380px' }}>
                     Selecione a quantidade de dezenas e inicie uma nova sala para seus jogadores.
                   </p>
-                  
+
                   <div className="mb-4">
                     <div className="tabs justify-content-center" style={{ background: 'var(--bg-dark)', borderRadius: '16px', padding: '4px' }}>
                       {[30, 75, 80, 90].map(m => (
@@ -488,7 +514,7 @@ export default function AdminDashboard() {
                     ) : (
                       <div className="text-center py-5 opacity-25">
                         <p className="fs-1">🧐</p>
-                        <p className="small">Nenhuma sala encontrada.<br/>Inicie uma nova sala ao lado.</p>
+                        <p className="small">Nenhuma sala encontrada.<br />Inicie uma nova sala ao lado.</p>
                       </div>
                     )}
                   </div>
@@ -498,45 +524,38 @@ export default function AdminDashboard() {
           </>
         ) : (
           <>
-            <header className="py-5 border-bottom shadow-sm mb-5" style={{ 
-                borderColor: 'rgba(255,255,255,0.05)', 
-                backgroundColor: 'rgba(2,6,23,0.8)', 
-                backdropFilter: 'blur(10px)'
+            {/* Room Sub-header */}
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 p-3 rounded-4" style={{
+              backgroundColor: 'rgba(2,6,23,0.4)',
+              border: '1px solid rgba(255,255,255,0.05)',
+              backdropFilter: 'blur(10px)'
             }}>
-              <Container fluid className="px-3 px-xl-5 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <div className="d-flex align-items-center gap-3">
-                    <h1 id="mainTitle" className="mb-0 fw-bold d-flex align-items-center gap-2" style={{ 
-                        fontFamily: 'var(--font-syncopate)', 
-                        fontSize: '1.4rem', 
-                        letterSpacing: '2px',
-                        color: 'white'
-                    }}>
-                        {roomId ? `SALA: ${roomId}` : 'SETUP'}
-                    </h1>
-                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">ONLINE</span>
-                </div>
+              <div className="d-flex align-items-center gap-3">
+                <h1 id="mainTitle" className="mb-0 fw-bold d-flex align-items-center gap-2" style={{
+                  fontFamily: 'var(--font-syncopate)',
+                  fontSize: '1.4rem',
+                  letterSpacing: '2px',
+                  color: 'white'
+                }}>
+                  {roomId ? `SALA: ${roomId}` : 'SETUP'}
+                </h1>
+                <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">ONLINE</span>
+              </div>
 
-                <div className="d-flex gap-3 align-items-center">
-                    <div className="d-none d-md-flex align-items-center gap-2 me-3">
-                        <span className="opacity-50 small text-uppercase fw-bold">Org:</span>
-                        <span className="fw-bold fs-6">{admin?.firstName} {admin?.lastName}</span>
-                    </div>
-                    <button className="btn btn-outline-info fw-bold px-4 py-2" style={{ borderRadius: '12px' }} onClick={() => {
-                        setRoomId(null);
-                    }}>PAINEL GERAL</button>
-                </div>
-              </Container>
-            </header>
-            
+              <button className="btn btn-outline-info fw-bold px-4 py-2" style={{ borderRadius: '12px' }} onClick={() => {
+                setRoomId(null);
+              }}>PAINEL DE CONTROLE</button>
+            </div>
+
             <Row className="g-4">
               {/* LADO ESQUERDO: SORTEIO E TABELA */}
               <Col lg={12} xl={5}>
                 <main>
-                  <div 
-                    className="hero-stage mb-4" 
-                    style={{ 
-                      minHeight: lastDrawn ? '260px' : undefined,
-                      padding: lastDrawn ? undefined : '20px 40px'
+                  <div
+                    className="hero-stage mb-4"
+                    style={{
+                      minHeight: '260px',
+                      padding: '20px'
                     }}
                   >
                     <div className="number-display pop text-center">
@@ -549,21 +568,37 @@ export default function AdminDashboard() {
                     <section className="cyber-panel controls-panel p-3">
                       <div className="control-stack d-flex flex-column gap-2">
 
-                        {/* INFORMAÇÕES DE SALA E TRANCAR */}
-                        <div className="d-flex justify-content-between align-items-center mb-2 px-3 py-2 rounded-4 shadow-inner" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                          <span className="text-light small fw-bold">👥 {players.length} {players.length === 1 ? 'Jogador' : 'Jogadores'}</span>
-                          <button className={`btn btn-sm fw-bold px-3 ${isLocked ? 'btn-danger' : 'btn-outline-info'}`} onClick={toggleLock} style={{ fontSize: '0.75rem', letterSpacing: '1px' }}>
-                            {isLocked ? '🔒 DESTRANCAR' : '🔓 TRANCAR SALA'}
-                          </button>
-                        </div>
+                        {/* BOTÃO JOGAR/PARAR (GRANDE) */}
+                        <Button
+                          variant={isLocked ? "danger" : "outline-info"}
+                          className={`btn-cyber w-100 fw-bold mb-2 ${isLocked ? '' : 'glow-blue'}`}
+                          onClick={toggleLock}
+                          style={{ height: '60px', fontSize: '1.2rem', letterSpacing: '2px' }}
+                        >
+                          {isLocked ? '⏹ PARAR BINGO' : '▶ JOGAR BINGO'}
+                        </Button>
 
                         {/* 1. NOVO BINGO */}
                         <button className="btn-cyber bg-transparent text-white border-secondary rounded-4 py-2 w-100" onClick={resetGame}>♻️ Novo Bingo</button>
 
                         {/* 2. AUTO 5S | AUTO 8S E SORTEAR */}
                         <div className="d-flex gap-2">
-                          <button disabled={!isLocked} className={`btn-cyber flex-grow-1 rounded-4 py-2 small ${autoMode === 5000 ? 'border-info text-info fw-bold' : 'border-secondary text-white bg-transparent'}`} style={{ cursor: !isLocked ? 'not-allowed' : 'pointer' }} onClick={() => setAutoMode(5000)}>⚡ Auto 5s</button>
-                          <button disabled={!isLocked} className={`btn-cyber flex-grow-1 rounded-4 py-2 small ${autoMode === 8000 ? 'border-info text-info fw-bold' : 'border-secondary text-white bg-transparent'}`} style={{ cursor: !isLocked ? 'not-allowed' : 'pointer' }} onClick={() => setAutoMode(8000)}>🐢 Auto 8s</button>
+                          <Button
+                            variant="outline-warning"
+                            className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                            onClick={() => startAutoDraw(5000)}
+                            disabled={!isLocked || autoMode !== 0}
+                          >
+                            ⚡ Auto 5s
+                          </Button>
+                          <Button
+                            variant="outline-success"
+                            className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                            onClick={() => startAutoDraw(8000)}
+                            disabled={!isLocked || autoMode !== 0}
+                          >
+                            🐢 Auto 8s
+                          </Button>
                         </div>
 
                         {/* 3. SORTEAR BOLA */}
@@ -605,24 +640,39 @@ export default function AdminDashboard() {
                 <aside className="d-flex flex-column gap-3 h-100">
                   {/* CONTROLES DESKTOP: DESAPARECEM NO CELULAR PARA NÃO REPETIR */}
                   <section className="cyber-panel controls-panel d-none d-lg-block">
-                    <h2 className="mb-3 text-light fw-bold fs-6 opacity-75" style={{ fontFamily: 'var(--font-syncopate)' }}>COMANDOS</h2>
-                    <div className="control-stack d-flex flex-column gap-2">
-                      <div className="d-flex justify-content-between align-items-center mb-sm-2 px-3 py-2 rounded-4 shadow-inner" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <span className="text-light small fw-bold">👥 {players.length} {players.length === 1 ? 'Jogador' : 'Jogadores'}</span>
-                        <button className={`btn btn-sm fw-bold ${isLocked ? 'btn-danger' : 'btn-outline-info'}`} onClick={toggleLock} style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>
-                          {isLocked ? '🔒 TRANCADA' : '🔓 TRANCAR'}
-                        </button>
-                      </div>
+                    <h2 className="mb-3 text-light fw-bold fs-6 opacity-75" style={{ fontFamily: 'var(--font-syncopate)' }}>Controles</h2>
+                    <div className="control-stack d-flex flex-column gap-3">
+                      {/* JOGAR / PARAR (GRANDE) */}
+                      <Button
+                        variant={isLocked ? "danger" : "outline-info"}
+                        className={`btn-cyber w-100 fw-bold ${isLocked ? '' : 'glow-blue'}`}
+                        onClick={toggleLock}
+                        style={{ height: '60px', fontSize: '1.2rem', letterSpacing: '2px' }}
+                      >
+                        {isLocked ? '⏹ PARAR BINGO' : '▶ JOGAR BINGO'}
+                      </Button>
 
-                      <button className="btn btn-outline-secondary text-white border-secondary rounded-4 py-2 mb-1 small" onClick={resetGame}>♻️ Novo Bingo</button>
+                      <button className="btn btn-outline-light btn-cyber py-2 w-100" onClick={resetGame}>
+                        ♻️ Novo Bingo
+                      </button>
 
                       <div className="d-flex gap-2">
-                        <button disabled={!isLocked} className={`btn-cyber flex-grow-1 rounded-4 py-2 small ${autoMode === 5000 ? 'border-info text-info fw-bold' : 'border-secondary text-white bg-transparent'}`} style={{ cursor: !isLocked ? 'not-allowed' : 'pointer' }} onClick={() => setAutoMode(5000)}>
+                        <Button
+                          variant="outline-warning"
+                          className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                          onClick={() => startAutoDraw(5000)}
+                          disabled={!isLocked || autoDrawActive}
+                        >
                           ⚡ Auto 5s
-                        </button>
-                        <button disabled={!isLocked} className={`btn-cyber flex-grow-1 rounded-4 py-2 small ${autoMode === 8000 ? 'border-info text-info fw-bold' : 'border-secondary text-white bg-transparent'}`} style={{ cursor: !isLocked ? 'not-allowed' : 'pointer' }} onClick={() => setAutoMode(8000)}>
+                        </Button>
+                        <Button
+                          variant="outline-success"
+                          className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                          onClick={() => startAutoDraw(8000)}
+                          disabled={!isLocked || autoDrawActive}
+                        >
                           🐢 Auto 8s
-                        </button>
+                        </Button>
                       </div>
 
                       {autoMode > 0 ? (
@@ -644,34 +694,39 @@ export default function AdminDashboard() {
                   </section>
 
                   <section className="cyber-panel qr-panel text-center p-2">
-                    <h2 className="text-light fw-bold fs-6 opacity-75 mb-3 pt-2" style={{ fontFamily: 'var(--font-syncopate)' }}>QR CODE</h2>
+                    <h2 className="text-light fw-bold fs-6 opacity-75 mb-3 pt-2" style={{ fontFamily: 'var(--font-syncopate)' }}>QR CODE E LINK</h2>
                     <div className="d-flex justify-content-center bg-white mx-auto my-2" style={{ borderRadius: '16px', width: '100%', maxWidth: '300px' }}>
                       <QRCodeSVG value={`${frontendUrl}/jogar?room=${roomId}`} size={260} className="w-100 h-auto p-2" />
                     </div>
-                    <p className="very-small text-light mb-2 opacity-50">Escaneie para entrar na sala.</p>
-                  </section>
+                    <p className="very-small text-light mb-3 opacity-50">Escaneie para entrar na sala.</p>
 
-                  <section className="cyber-panel history-panel">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <h2 className="text-light fw-bold fs-6 opacity-75 m-0" style={{ fontFamily: 'var(--font-syncopate)' }}>HISTÓRICO</h2>
-                      <span className="badge" style={{ background: 'var(--accent)' }}>{calledNumbers.length} bolas</span>
+                    <div className="px-2 pb-2">
+                      <InputGroup className="mb-2">
+                        <RBForm.Control
+                          readOnly
+                          value={`${frontendUrl}/jogar?room=${roomId}`}
+                          style={{
+                            background: 'rgba(0,0,0,0.3)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--primary)',
+                            fontSize: '0.75rem',
+                            borderRadius: '8px 0 0 8px'
+                          }}
+                        />
+                        <Button
+                          variant="primary-cyber"
+                          className="btn-cyber btn-sm px-3"
+                          onClick={copyRoomUrl}
+                          style={{ borderRadius: '0 8px 8px 0', fontSize: '0.8rem' }}
+                        >
+                          COPIAR
+                        </Button>
+                      </InputGroup>
                     </div>
-
-                    {history.length > 0 ? (
-                      <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '10px' }}>
-                        {history.map((item, idx) => (
-                          <div key={idx} className="d-flex justify-content-between align-items-center rounded-4 bg-dark border shadow-sm px-2 py-1" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-                            <strong className="text-white" style={{ fontSize: '1rem' }}>
-                              {getDisplayNumber(item.number, gameMode)}
-                            </strong>
-                            <span className="text-info opacity-75 small" style={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>{item.time}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-light opacity-50 small mb-0 text-center py-2">Sem bolas.</p>
-                    )}
                   </section>
+
+                  {/* History panel removed as per user request (redundant with chat) */}
+
                 </aside>
               </Col>
 
@@ -679,9 +734,9 @@ export default function AdminDashboard() {
               <Col lg={6} xl={4}>
                 <aside className="d-flex flex-column gap-3 h-100">
                   {/* CHAT PANEL */}
-                  <section className="cyber-panel chat-panel d-flex flex-column" style={{ maxHeight: '360px', minHeight: '200px' }}>
+                  <section className="cyber-panel chat-panel d-flex flex-column" style={{ height: '440px' }}>
                     <h2 className="text-light fw-bold fs-6 opacity-75 mb-3 pt-2" style={{ fontFamily: 'var(--font-syncopate)' }}>CHAT DA SALA</h2>
-                    <div className="flex-grow-1 overflow-auto bg-dark p-2 rounded-4 mb-2 shadow-inner" style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div ref={chatMessagesRef} className="flex-grow-1 overflow-auto bg-dark p-2 rounded-4 mb-2 shadow-inner" style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
                       {messages.length > 0 ? messages.map((m, i) => (
                         <div key={i} className={`mb-2 small ${m.type === 'admin' ? 'text-info' : m.type.startsWith('system') ? 'text-warning fw-bold' : 'text-light'}`}>
                           <span className="opacity-50" style={{ fontSize: '0.7rem' }}>[{m.time}] </span>
@@ -693,12 +748,12 @@ export default function AdminDashboard() {
                       )}
                     </div>
                     <form onSubmit={sendMessage} className="d-flex gap-2 pb-1">
-                      <input 
-                        type="text" 
-                        className="form-control form-control-sm bg-dark text-white border-secondary" 
-                        placeholder="Enviar um aviso..." 
-                        value={chatInput} 
-                        onChange={e => setChatInput(e.target.value)} 
+                      <input
+                        type="text"
+                        className="form-control form-control-sm bg-dark text-white border-secondary"
+                        placeholder="Enviar um aviso..."
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
                         maxLength="150"
                       />
                       <button type="submit" className="btn btn-sm btn-info fw-bold px-3">ENVIAR</button>
@@ -707,18 +762,22 @@ export default function AdminDashboard() {
 
                   {/* PLAYERS PANEL */}
                   <section className="cyber-panel players-panel overflow-hidden">
-                     <h2 className="text-light fw-bold fs-6 opacity-75 mb-3" style={{ fontFamily: 'var(--font-syncopate)' }}>LISTA DE JOGADORES</h2>
-                     <div className="d-flex flex-wrap gap-2" style={{ maxHeight: '180px', overflowY: 'auto' }}>
-                       {players.length > 0 ? (
-                         players.map((p, i) => (
-                           <span key={i} className="badge bg-dark border border-secondary text-light px-2 py-2" style={{ borderRadius: '16px', fontSize: '0.8rem' }}>
-                             👤 {p.name}
-                           </span>
-                         ))
-                       ) : (
-                         <p className="text-light opacity-50 small mb-0 w-100 text-center">Aguardando...</p>
-                       )}
-                     </div>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h2 className="text-light fw-bold fs-6 opacity-75 m-0" style={{ fontFamily: 'var(--font-syncopate)' }}>
+                        👥 {players.length} JOGADORES
+                      </h2>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                      {players.length > 0 ? (
+                        players.map((p, i) => (
+                          <span key={i} className="badge bg-dark border border-secondary text-light px-2 py-2" style={{ borderRadius: '16px', fontSize: '0.8rem' }}>
+                            👤 {p.name}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-light opacity-50 small mb-0 w-100 text-center">Aguardando...</p>
+                      )}
+                    </div>
                   </section>
                 </aside>
               </Col>
@@ -726,6 +785,6 @@ export default function AdminDashboard() {
           </>
         )}
       </Container>
-    </div>
+    </>
   );
 }
