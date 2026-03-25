@@ -1,43 +1,41 @@
 services:
   frontend:
-    container_name: masterbingo-frontend
+    container_name: bingov2-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file: ./frontend/.env.production
-    # ports:
-    #   - "3000:3000"
     networks:
       - proxy
     depends_on:
       - backend
 
   backend:
-    container_name: masterbingo-backend
+    container_name: bingov2-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
     env_file: ./backend/.env
-    # ports:
-    #   - "5000:5000"
     networks:
       - proxy
-      - masterbingo_internal
+      - bingo_internal
     depends_on:
       - mongo
 
   mongo:
     image: mongo:7
-    container_name: masterbingo-mongo
+    container_name: bingov2-mongo
     restart: unless-stopped
+#    ports:
+#      - "27018:27017"
     volumes:
-      - ./data/mongo-masterbingo:/data/db
+      - ./data/mongo-bingo:/data/db
     networks:
-      - masterbingo_internal
+      - bingo_internal
 
 networks:
   proxy:
     external: true
-  masterbingo_internal:
+  bingo_internal:
