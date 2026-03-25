@@ -121,7 +121,7 @@ router.put('/:roomId/lock', async (req, res) => {
     const room = await Room.findOneAndUpdate(
       { roomId: req.params.roomId },
       { $set: { isLocked } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!room) return res.status(404).json({ message: 'Sala não encontrada.' });
     res.json(room);
@@ -136,7 +136,7 @@ router.put('/:roomId/draw', async (req, res) => {
      const room = await Room.findOneAndUpdate(
        { roomId: req.params.roomId },
        { $push: { drawnNumbers: number }, status: 'playing' },
-       { new: true }
+       { returnDocument: 'after' }
      );
      res.json(room);
    } catch (error) {

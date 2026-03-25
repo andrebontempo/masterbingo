@@ -58,14 +58,16 @@ export default function AdminDashboard() {
     }
   }, [router]);
 
+  const fetchAdminRooms = async () => {
+    if (!admin?._id) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/organizador/${admin._id}`);
+      if (res.ok) setAdminRooms(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
   useEffect(() => {
     if (admin?._id && !roomId) {
-      const fetchAdminRooms = async () => {
-        try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/organizador/${admin._id}`);
-          if (res.ok) setAdminRooms(await res.json());
-        } catch (e) { console.error(e); }
-      };
       fetchAdminRooms();
     }
   }, [admin, roomId]);
@@ -212,7 +214,7 @@ export default function AdminDashboard() {
     ]);
     if (socket) socket.emit('close_room', roomId);
     setRoomId(null);
-    if (admin) fetchAdminRooms(admin.id);
+    if (admin) fetchAdminRooms();
   };
 
   const resumeRoom = async (rid) => {
@@ -661,7 +663,7 @@ export default function AdminDashboard() {
                           variant="outline-warning"
                           className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
                           onClick={() => startAutoDraw(5000)}
-                          disabled={!isLocked || autoDrawActive}
+                          disabled={!isLocked || autoMode !== 0}
                         >
                           ⚡ Auto 5s
                         </Button>
@@ -669,7 +671,7 @@ export default function AdminDashboard() {
                           variant="outline-success"
                           className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
                           onClick={() => startAutoDraw(8000)}
-                          disabled={!isLocked || autoDrawActive}
+                          disabled={!isLocked || autoMode !== 0}
                         >
                           🐢 Auto 8s
                         </Button>

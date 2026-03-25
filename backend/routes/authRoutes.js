@@ -172,7 +172,7 @@ router.post('/promote', async (req, res) => {
     return res.status(403).json({ message: 'Chave secreta inválida.' });
   }
   try {
-    const admin = await User.findOneAndUpdate({ email }, { role: 'admin' }, { new: true });
+    const admin = await User.findOneAndUpdate({ email }, { role: 'admin' }, { returnDocument: 'after' });
     if (!admin) return res.status(404).json({ message: 'Usuário não encontrado.' });
     res.json({ message: `${admin.email} promovido a Administrador.`, role: admin.role });
   } catch (err) {
