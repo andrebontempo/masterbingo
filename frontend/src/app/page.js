@@ -71,35 +71,17 @@ export default function LandingPage() {
                   border: '1px solid rgba(255,255,255,0.1)',
                   boxShadow: '0 40px 100px -20px rgba(0,0,0,0.8)'
               }}>
-                <div className="ratio ratio-16x9 position-relative overflow-hidden" style={{ borderRadius: '24px' }}>
-                   {/* Video Placeholder */}
-                   <div 
-                      className="w-100 h-100 d-flex flex-column align-items-center justify-content-center"
-                      style={{ 
-                          background: 'linear-gradient(135deg, rgba(0, 114, 255, 0.2), rgba(0, 242, 255, 0.1))',
-                          border: '2px dashed rgba(255,255,255,0.1)',
-                          borderRadius: '24px'
-                      }}
+                <div className="ratio ratio-16x9 position-relative overflow-hidden shadow-2xl" style={{ borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                   <video 
+                      controls 
+                      playsInline
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                    >
-                      <div className="mb-3 opacity-20" style={{ fontSize: '4rem' }}>📺</div>
-                      <h4 className="fw-bold opacity-30 text-uppercase" style={{ letterSpacing: '4px' }}>Video Tutorial</h4>
-                   </div>
-                   <div className="position-absolute top-50 left-50 translate-middle" style={{ cursor: 'pointer' }}>
-                      <div className="p-4 rounded-circle bg-white text-dark shadow-lg d-flex align-items-center justify-content-center" style={{ width: '80px', height: '80px', transition: 'all 0.3s' }}>
-                         <span style={{ fontSize: '1.5rem', color: '#0072ff' }}>▶</span>
-                      </div>
-                   </div>
+                      <source src="/video_masterbingo.mp4" type="video/mp4" />
+                      Seu navegador não suporta vídeos.
+                   </video>
                 </div>
-                {/* Status indicator */}
-                <div className="position-absolute bottom-0 start-50 translate-middle-x mb-n3 px-4 py-2 rounded-pill shadow-lg border" style={{ 
-                    background: '#020617', 
-                    borderColor: 'rgba(0, 242, 255, 0.3)',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    color: 'var(--primary, #00f2ff)'
-                }}>
-                  ● VÍDEO TUTORIAL RÁPIDO (1:45)
-                </div>
+
               </div>
             </Col>
 
