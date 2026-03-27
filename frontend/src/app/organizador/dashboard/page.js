@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [autoMode, setAutoMode] = useState(0);
   const [players, setPlayers] = useState([]); // Nova lista de jogadores
   const [isLocked, setIsLocked] = useState(false); // Trancar sala
+  const [selectedPlayer, setSelectedPlayer] = useState(null); // Jogador sendo conferido
   const isLockedRef = useRef(isLocked);
 
   useEffect(() => {
@@ -114,8 +115,14 @@ export default function AdminDashboard() {
       });
       socket.on('player_joined', (data) => {
         setPlayers(prev => {
-          if (prev.some(p => p.name === data.name)) return prev;
-          return [...prev, { name: data.name }];
+          if (prev.some(p => p.name === data.name)) {
+            // Se já existe e trouxe o card (ex: reconexão), atualiza
+            if (data.card) {
+                return prev.map(p => p.name === data.name ? { ...p, card: data.card } : p);
+            }
+            return prev;
+          }
+          return [...prev, { name: data.name, card: data.card }];
         });
       });
 
@@ -142,6 +149,7 @@ export default function AdminDashboard() {
       setLastDrawn(null);
       setHistory([]);
       setPlayers([]);
+      setSelectedPlayer(null);
       setIsLocked(false);
       setMessages([
         { sender: 'SISTEMA', text: '🟢 Sala Aberta!', type: 'system', time: new Date().toLocaleTimeString('pt-BR', { hour12: false }) },
@@ -207,6 +215,7 @@ export default function AdminDashboard() {
     setLastDrawn(null);
     setHistory([]);
     setPlayers([]);
+    setSelectedPlayer(null);
     setIsLocked(false);
     setMessages([
       { sender: 'SISTEMA', text: '🟢 Sala Aberta!', type: 'system', time: new Date().toLocaleTimeString('pt-BR', { hour12: false }) },
@@ -237,6 +246,7 @@ export default function AdminDashboard() {
 
         // Restaurar jogadores
         setPlayers(data.players || []);
+        setSelectedPlayer(null);
 
         if (drawn.length > 0) {
           setLastDrawn(drawn[drawn.length - 1]);
@@ -762,17 +772,80 @@ export default function AdminDashboard() {
                     </form>
                   </section>
 
-                  {/* PLAYERS PANEL */}
-                  <section className="cyber-panel players-panel overflow-hidden">
-                    <div className="d-flex justify-content-between align-items-center mb-3">
+                   {/* PLAYERS PANEL */}
+                   <section className="cyber-panel players-panel overflow-hidden">
+                     {/* CONFERÊNCIA DE CARTELA */}
+                     {selectedPlayer && (
+                       <div className="mb-4 p-3 rounded-4 bounce-in" style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid var(--primary)', boxShadow: '0 0 20px rgba(0,242,255,0.1)' }}>
+                         <div className="d-flex justify-content-between align-items-center mb-3">
+                           <h3 className="text-light fw-bold m-0" style={{ fontFamily: 'var(--font-syncopate)', fontSize: '0.75rem' }}>
+                             VERIFICANDO: <span className="text-info">{selectedPlayer.name.toUpperCase()}</span>
+                           </h3>
+                           <button className="btn btn-sm btn-outline-danger py-0 px-2" style={{ fontSize: '0.7rem' }} onClick={(e) => { e.stopPropagation(); setSelectedPlayer(null); }}>✕ FECHAR</button>
+                         </div>
+                         
+                         <div className="board-glass p-2">
+                           {selectedPlayer.card ? (
+                             <table className="w-100 text-center m-0 p-0" style={{ tableLayout: 'fixed', borderSpacing: '3px', borderCollapse: 'separate' }}>
+                               <thead>
+                                 <tr>{["B","I","N","G","O"].map(l => <th key={l} className="text-primary" style={{ fontSize: '0.75rem', fontFamily: 'var(--font-syncopate)', paddingBottom: '5px' }}>{l}</th>)}</tr>
+                               </thead>
+                               <tbody>
+                                 {selectedPlayer.card.map((row, rIdx) => (
+                                   <tr key={rIdx}>
+                                     {row.map((cell, cIdx) => {
+                                       const isFree = cell === "FREE";
+                                       const isCalled = isFree || calledNumbers.includes(cell);
+                                       return (
+                                         <td key={cIdx} className="p-0">
+                                           <div style={{ 
+                                             width: '100%', 
+                                             aspectRatio: '1/1',
+                                             fontSize: isFree ? '0.8rem' : '0.8rem', 
+                                             fontWeight: 'bold',
+                                             borderRadius: '6px',
+                                             background: isCalled ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                             color: isCalled ? '#000' : 'rgba(255,255,255,0.3)',
+                                             border: isCalled ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)',
+                                             display: 'flex',
+                                             alignItems: 'center',
+                                             justifyContent: 'center',
+                                             boxShadow: isCalled ? '0 0 10px rgba(0,242,255,0.2)' : 'none'
+                                           }}>
+                                             {isFree ? "⭐" : cell}
+                                           </div>
+                                         </td>
+                                       );
+                                     })}
+                                   </tr>
+                                 ))}
+                               </tbody>
+                             </table>
+                           ) : (
+                             <p className="text-muted small text-center m-0 py-3">Dados da cartela não disponíveis.</p>
+                           )}
+                           <div className="mt-2 text-center">
+                             <span className="badge bg-dark border border-secondary text-light py-1 px-3" style={{ fontSize: '0.7rem' }}>
+                               ACERTOS: {selectedPlayer.card ? selectedPlayer.card.flat().filter(c => c === "FREE" || calledNumbers.includes(c)).length : 0} / 25
+                             </span>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                     <div className="d-flex justify-content-between align-items-center mb-3">
                       <h2 className="text-light fw-bold fs-6 opacity-75 m-0" style={{ fontFamily: 'var(--font-syncopate)' }}>
-                        👥 {players.length} JOGADORES
+                        👥 {players.length} JOGADORES <span className="text-primary small" style={{ fontSize: '0.6rem' }}>(Clique para conferir)</span>
                       </h2>
                     </div>
                     <div className="d-flex flex-wrap gap-2" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                       {players.length > 0 ? (
                         players.map((p, i) => (
-                          <span key={i} className="badge bg-dark border border-secondary text-light px-2 py-2" style={{ borderRadius: '16px', fontSize: '0.8rem' }}>
+                          <span 
+                            key={i} 
+                            className={`badge border text-light px-2 py-2 ${selectedPlayer?.name === p.name ? 'border-info bg-info text-dark' : 'bg-dark border-secondary'}`} 
+                            style={{ borderRadius: '16px', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                            onClick={() => setSelectedPlayer(p)}
+                          >
                             👤 {p.name}
                           </span>
                         ))

@@ -30,15 +30,15 @@ export default function LandingPage() {
                   lineHeight: '1.1',
                   textShadow: '0 0 40px rgba(0, 242, 255, 0.2)'
               }}>
-                Master Bingo para <br />
+                Master Bingo<br />
                 <span style={{ 
                     background: 'linear-gradient(90deg, #ddff00, #00f2ff)', 
                     WebkitBackgroundClip: 'text', 
                     WebkitTextFillColor: 'transparent' 
-                }}>Eventos e Lives</span>
+                }}>Ideal para, Festas, Eventos e Lives</span>
               </h1>
               <p className="fs-5 opacity-60 mb-4 pe-lg-5" style={{ lineHeight: '1.6' }}>
-                A plataforma completa para gerenciar sorteios profissionais em festas, conferências e transmissões ao vivo. 
+                A plataforma completa para gerenciar bingos em festas, conferências e transmissões ao vivo. 
                 Gere cartelas digitais instantaneamente e controle tudo em tempo real.
               </p>
 
@@ -57,9 +57,11 @@ export default function LandingPage() {
                  >
                     Começar Agora
                  </button>
+                 
                  <button className="btn btn-outline-light px-5 py-3 fw-bold text-uppercase" style={{ borderRadius: '16px', fontSize: '0.9rem', border: '1px solid rgba(255,255,255,0.1)' }}>
                     Ver Exemplos
                  </button>
+                 
               </div>
             </Col>
 

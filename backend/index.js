@@ -85,9 +85,10 @@ io.on('connection', (socket) => {
     const roomId = typeof data === 'string' ? data : data.roomId;
     if (!roomId) return;
     const name = typeof data === 'string' ? null : data.playerName;
+    const card = typeof data === 'string' ? null : data.card;
     socket.join(roomId);
     if (name) {
-      io.to(roomId).emit('player_joined', { name, id: socket.id });
+      io.to(roomId).emit('player_joined', { name, id: socket.id, card });
     }
     console.log(`Socket ${socket.id} joined room ${roomId}`);
   });

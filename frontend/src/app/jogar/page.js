@@ -41,13 +41,13 @@ export default function PlayerHome() {
 
     if (socket) {
       const handleConnect = () => {
-        if (joined && roomId && name) {
-          socket.emit('join_room', { roomId, playerName: name });
+        if (joined && roomId && name && cartela) {
+          socket.emit('join_room', { roomId, playerName: name, card: cartela });
         }
       };
 
-      if (socket.connected && joined && roomId && name) {
-        socket.emit('join_room', { roomId, playerName: name });
+      if (socket.connected && joined && roomId && name && cartela) {
+        socket.emit('join_room', { roomId, playerName: name, card: cartela });
       }
 
       socket.on('connect', handleConnect);
@@ -97,7 +97,7 @@ export default function PlayerHome() {
       setMessages(data.messages || []);
 
       if (socket) {
-        socket.emit('join_room', { roomId, playerName: data.name });
+        socket.emit('join_room', { roomId, playerName: data.name, card: data.card });
         setJoined(true);
       }
     } catch(err) {
