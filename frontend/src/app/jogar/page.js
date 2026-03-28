@@ -10,6 +10,7 @@ export default function PlayerHome() {
   const [joined, setJoined] = useState(false);
   const [lastDrawn, setLastDrawn] = useState(null);
   const [cartela, setCartela] = useState([]);
+  const [gameMode, setGameMode] = useState(75);
   const [marked, setMarked] = useState([]);
 
   const [deviceId, setDeviceId] = useState("");
@@ -93,6 +94,7 @@ export default function PlayerHome() {
       }
 
       setCartela(data.card);
+      setGameMode(data.gameMode || 75);
       setName(data.name);
       setMessages(data.messages || []);
 
@@ -142,15 +144,57 @@ export default function PlayerHome() {
           <Card.Body className="p-3 p-sm-4">
             <h4 className="text-center mb-4 text-light small">Cartela de <span style={{ color: 'var(--accent)' }}>{name}</span></h4>
             
+          {/* 90-BALL: VINTAGE CARD LAYOUT */}
+          {gameMode === 90 ? (
+            <div className="bingo90-card mx-auto mb-4">
+              {/* Card header */}
+              <div className="bingo90-header">
+                {[1,2,3,4,5,6,7,8,9].map(n => (
+                  <div key={n} className="bingo90-col-header">{n === 1 ? '1-9' : `${(n-1)*10}-${n === 9 ? 90 : n*10-1}`}</div>
+                ))}
+              </div>
+              <div className="bingo90-body">
+                {cartela.map((row, rIdx) => (
+                  <div key={rIdx} className="bingo90-row">
+                    {row.map((cell, cIdx) => {
+                      const isEmpty = cell === null || cell === undefined;
+                      const isMarked = !isEmpty && marked.includes(cell);
+                      return (
+                        <div
+                          key={cIdx}
+                          className={`bingo90-cell ${isEmpty ? 'bingo90-empty' : ''} ${isMarked ? 'bingo90-marked' : ''}`}
+                          onClick={() => !isEmpty && toggleMark(cell)}
+                        >
+                          {isEmpty ? '' : cell}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div className="bingo90-footer">
+                <span>BINGO 90 BOLAS</span>
+                <span>Cartela de {name}</span>
+              </div>
+            </div>
+          ) : (
             <div className="board-glass p-2 mb-4 mx-auto w-100" style={{ borderRadius: '16px', overflowX: 'hidden' }}>
               <table className="w-100 text-center m-0 p-0" style={{ tableLayout: 'fixed', borderSpacing: '4px', borderCollapse: 'separate' }}>
                 <thead>
                   <tr>
-                    {["B", "I", "N", "G", "O"].map(letter => (
-                      <th key={letter} className="small pb-2 text-primary fw-bold" style={{ fontFamily: 'var(--font-syncopate)' }}>
-                        {letter}
-                      </th>
-                    ))}
+                    {gameMode === 30 ? (
+                      ["1", "2", "3"].map(l => (
+                        <th key={l} className="small pb-2 text-primary fw-bold" style={{ fontFamily: 'var(--font-syncopate)' }}>
+                          COL {l}
+                        </th>
+                      ))
+                    ) : (
+                      ["B", "I", "N", "G", "O"].map(letter => (
+                        <th key={letter} className="small pb-2 text-primary fw-bold" style={{ fontFamily: 'var(--font-syncopate)' }}>
+                           {letter}
+                        </th>
+                      ))
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -187,46 +231,15 @@ export default function PlayerHome() {
                 </tbody>
               </table>
             </div>
+          )}
             
-            {/* BOTÕES DE DECLARAÇÃO */}
-            <div className="d-flex flex-column gap-3 w-100">
-              <div className="d-flex justify-content-between gap-3">
-                <button 
-                  className="btn-cyber btn-warning-cyber flex-grow-1 py-3 shadow-sm fw-bold" 
-                  style={{ borderRadius: '16px', fontSize: '1rem' }} 
-                  onClick={() => socket && socket.emit('special_called', { roomId, playerName: name, type: 'linha' })}>
-                  LINHA
-                </button>
-                <button 
-                  className="btn-cyber btn-warning-cyber flex-grow-1 py-3 shadow-sm fw-bold" 
-                  style={{ borderRadius: '16px', fontSize: '1rem' }} 
-                  onClick={() => socket && socket.emit('special_called', { roomId, playerName: name, type: 'coluna' })}>
-                  COLUNA
-                </button>
-              </div>
-              
-              <div className="d-flex justify-content-between gap-3">
-                <button 
-                  className="btn-cyber btn-warning-cyber flex-grow-1 py-3 shadow-sm fw-bold" 
-                  style={{ borderRadius: '16px', fontSize: '1rem' }} 
-                  onClick={() => socket && socket.emit('special_called', { roomId, playerName: name, type: 'diagonal' })}>
-                  DIAGONAL
-                </button>
-                <button 
-                  className="btn-cyber btn-warning-cyber flex-grow-1 py-3 shadow-sm fw-bold" 
-                  style={{ borderRadius: '16px', fontSize: '0.9rem' }} 
-                  onClick={() => socket && socket.emit('special_called', { roomId, playerName: name, type: 'extremidades' })}>
-                  EXTREMIDADES
-                </button>
-              </div>
-
-              <button 
-                className="btn-cyber btn-primary-cyber w-100 py-3 shadow-sm fw-bold" 
-                style={{ fontSize: '1.6rem', letterSpacing: '4px', borderRadius: '16px' }} 
-                onClick={() => socket && socket.emit('special_called', { roomId, playerName: name, type: 'bingo' })}>
-                BINGO
-              </button>
-            </div>
+            {/* BOTÃO DE DECLARAÇÃO */}
+            <button 
+              className="btn-cyber btn-primary-cyber w-100 py-4 shadow-sm fw-bold" 
+              style={{ fontSize: '1.8rem', letterSpacing: '6px', borderRadius: '20px' }} 
+              onClick={() => socket && socket.emit('special_called', { roomId, playerName: name, type: 'bingo' })}>
+              B I N G O
+            </button>
 
             {/* CHAT DO JOGADOR */}
             <div className="mt-5 cyber-panel chat-panel d-flex flex-column" style={{ height: '250px', borderRadius: '24px' }}>

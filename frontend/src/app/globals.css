@@ -577,3 +577,115 @@
 .bounce-in {
   animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
+
+/* ══════════════════════════════════════
+   BINGO 90 BOLAS – CARTELA VINTAGE
+══════════════════════════════════════ */
+.bingo90-card {
+  width: 100%;
+  max-width: 440px;
+  background: #f5f0e8;
+  border: 3px solid #1a5fa8;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4), inset 0 0 0 2px rgba(255,255,255,0.6);
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+.bingo90-header {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  background: #1a5fa8;
+  border-bottom: 2px solid #0d3d6e;
+}
+
+.bingo90-col-header {
+  text-align: center;
+  color: #ffffff;
+  font-size: clamp(0.45rem, 1.8vw, 0.65rem);
+  font-weight: bold;
+  padding: 3px 0;
+  border-right: 1px solid rgba(255,255,255,0.25);
+  letter-spacing: -0.5px;
+}
+.bingo90-col-header:last-child { border-right: none; }
+
+.bingo90-body {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid #1a5fa8;
+}
+
+.bingo90-row {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  border-bottom: 1px solid #1a5fa8;
+}
+.bingo90-row:last-child { border-bottom: none; }
+
+.bingo90-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  font-size: clamp(0.9rem, 3.5vw, 1.4rem);
+  font-weight: 900;
+  color: #1a3a6e;
+  background: #ffffff;
+  border-right: 1px solid #1a5fa8;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  letter-spacing: -0.5px;
+}
+.bingo90-cell:last-child { border-right: none; }
+
+.bingo90-cell:active {
+  transform: scale(0.94);
+}
+
+.bingo90-empty {
+  background: #dce8f5;
+  cursor: default;
+}
+
+.bingo90-marked {
+  background: #1a5fa8 !important;
+  color: #ffffff !important;
+  cursor: pointer;
+}
+
+.bingo90-marked::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 3px;
+  border: 2px solid rgba(255,255,255,0.5);
+  pointer-events: none;
+}
+
+.bingo90-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: #1a5fa8;
+  color: #ffffff;
+  font-size: clamp(0.5rem, 1.8vw, 0.65rem);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* 90-ball in admin verification panel */
+.bingo90-admin {
+  max-width: 100%;
+  font-size: 0.7rem;
+}
+.bingo90-admin .bingo90-cell {
+  font-size: clamp(0.55rem, 1.5vw, 0.85rem);
+}
+.bingo90-admin .bingo90-col-header {
+  font-size: 0.45rem;
+}

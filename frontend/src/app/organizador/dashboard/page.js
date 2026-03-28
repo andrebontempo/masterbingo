@@ -91,14 +91,14 @@ export default function AdminDashboard() {
         // Usamos o Ref para checar o valor ATUAL e travamos a execução dupla imediatamente
         if (isLockedRef.current === true) {
           isLockedRef.current = false; // Bloqueia execuções subsequentes instantaneamente
-          
+
           // Trava no backend
           fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${roomId}/lock`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ isLocked: false })
           });
-          
+
           setIsLocked(false);
           setAutoMode(0);
 
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
           if (prev.some(p => p.name === data.name)) {
             // Se já existe e trouxe o card (ex: reconexão), atualiza
             if (data.card) {
-                return prev.map(p => p.name === data.name ? { ...p, card: data.card } : p);
+              return prev.map(p => p.name === data.name ? { ...p, card: data.card } : p);
             }
             return prev;
           }
@@ -453,7 +453,7 @@ export default function AdminDashboard() {
                 letterSpacing: '4px',
                 color: 'var(--primary, #00f2ff)'
               }}>
-                PAINEL DE CONTROLE
+                PAINEL DO ORGANIZADOR
               </h1>
             </div>
             {/* ─── CONTEÚDO PRINCIPAL ─── */}
@@ -474,10 +474,39 @@ export default function AdminDashboard() {
                     Selecione a quantidade de dezenas e inicie uma nova sala para seus jogadores.
                   </p>
 
-                  <div className="mb-4">
-                    <div className="tabs justify-content-center" style={{ background: 'var(--bg-dark)', borderRadius: '16px', padding: '4px' }}>
-                      {[30, 75, 80, 90].map(m => (
-                        <button key={m} className={gameMode === m ? "active" : ""} onClick={() => switchMode(m)}>{m}</button>
+                  <div className="mb-4 w-100" style={{ maxWidth: '600px' }}>
+                    <div className="d-flex flex-column gap-3">
+                      {[
+                        { 
+                          mode: 30, 
+                          title: "Bingo 30 Bolas", 
+                          desc: "Versão rápida e dinâmica, jogada em cartelas 3x3 com números de 1 a 30, onde vence quem completar toda a cartela primeiro em poucos minutos." 
+                        },
+                        { 
+                          mode: 75, 
+                          title: "Bingo 75 Bolas", 
+                          desc: "Formato popular com cartelas 5x5 e espaço central livre, no qual os jogadores precisam completar padrões específicos (linhas, colunas ou formas) para ganhar." 
+                        },
+                        { 
+                          mode: 90, 
+                          title: "Bingo 90 Bolas", 
+                          desc: "Versão tradicional com cartelas de 3 linhas e 15 números, jogada em etapas de prêmio — 1 linha, 2 linhas e cartela cheia — oferecendo uma experiência mais longa e social." 
+                        }
+                      ].map(item => (
+                        <div 
+                          key={item.mode} 
+                          className={`p-3 border rounded-4 text-start pointer-event ${gameMode === item.mode ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary opacity-75'}`}
+                          style={{ cursor: 'pointer', transition: 'all 0.2s', background: gameMode === item.mode ? 'rgba(14,165,233,0.1)' : 'transparent' }}
+                          onClick={() => setGameMode(item.mode)}
+                        >
+                          <div className="d-flex align-items-center gap-2 mb-1">
+                            <div className={`rounded-circle ${gameMode === item.mode ? 'bg-primary' : 'bg-secondary'}`} style={{ width: '12px', height: '12px' }}></div>
+                            <h5 className="mb-0 fw-bold text-light" style={{ fontSize: '1rem' }}>{item.title}</h5>
+                          </div>
+                          <p className="very-small text-light opacity-60 m-0" style={{ fontSize: '0.75rem', lineHeight: '1.4' }}>
+                            {item.desc}
+                          </p>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -556,7 +585,7 @@ export default function AdminDashboard() {
 
               <button className="btn btn-outline-info fw-bold px-4 py-2" style={{ borderRadius: '12px' }} onClick={() => {
                 setRoomId(null);
-              }}>PAINEL DE CONTROLE</button>
+              }}>PAINEL DO ORGANIZADOR</button>
             </div>
 
             <Row className="g-4">
@@ -772,67 +801,107 @@ export default function AdminDashboard() {
                     </form>
                   </section>
 
-                   {/* PLAYERS PANEL */}
-                   <section className="cyber-panel players-panel overflow-hidden">
-                     {/* CONFERÊNCIA DE CARTELA */}
-                     {selectedPlayer && (
-                       <div className="mb-4 p-3 rounded-4 bounce-in" style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid var(--primary)', boxShadow: '0 0 20px rgba(0,242,255,0.1)' }}>
-                         <div className="d-flex justify-content-between align-items-center mb-3">
-                           <h3 className="text-light fw-bold m-0" style={{ fontFamily: 'var(--font-syncopate)', fontSize: '0.75rem' }}>
-                             VERIFICANDO: <span className="text-info">{selectedPlayer.name.toUpperCase()}</span>
-                           </h3>
-                           <button className="btn btn-sm btn-outline-danger py-0 px-2" style={{ fontSize: '0.7rem' }} onClick={(e) => { e.stopPropagation(); setSelectedPlayer(null); }}>✕ FECHAR</button>
-                         </div>
-                         
-                         <div className="board-glass p-2">
-                           {selectedPlayer.card ? (
-                             <table className="w-100 text-center m-0 p-0" style={{ tableLayout: 'fixed', borderSpacing: '3px', borderCollapse: 'separate' }}>
-                               <thead>
-                                 <tr>{["B","I","N","G","O"].map(l => <th key={l} className="text-primary" style={{ fontSize: '0.75rem', fontFamily: 'var(--font-syncopate)', paddingBottom: '5px' }}>{l}</th>)}</tr>
-                               </thead>
-                               <tbody>
-                                 {selectedPlayer.card.map((row, rIdx) => (
-                                   <tr key={rIdx}>
-                                     {row.map((cell, cIdx) => {
-                                       const isFree = cell === "FREE";
-                                       const isCalled = isFree || calledNumbers.includes(cell);
-                                       return (
-                                         <td key={cIdx} className="p-0">
-                                           <div style={{ 
-                                             width: '100%', 
-                                             aspectRatio: '1/1',
-                                             fontSize: isFree ? '0.8rem' : '0.8rem', 
-                                             fontWeight: 'bold',
-                                             borderRadius: '6px',
-                                             background: isCalled ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                             color: isCalled ? '#000' : 'rgba(255,255,255,0.3)',
-                                             border: isCalled ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)',
-                                             display: 'flex',
-                                             alignItems: 'center',
-                                             justifyContent: 'center',
-                                             boxShadow: isCalled ? '0 0 10px rgba(0,242,255,0.2)' : 'none'
-                                           }}>
-                                             {isFree ? "⭐" : cell}
-                                           </div>
-                                         </td>
-                                       );
-                                     })}
-                                   </tr>
-                                 ))}
-                               </tbody>
-                             </table>
-                           ) : (
-                             <p className="text-muted small text-center m-0 py-3">Dados da cartela não disponíveis.</p>
-                           )}
-                           <div className="mt-2 text-center">
-                             <span className="badge bg-dark border border-secondary text-light py-1 px-3" style={{ fontSize: '0.7rem' }}>
-                               ACERTOS: {selectedPlayer.card ? selectedPlayer.card.flat().filter(c => c === "FREE" || calledNumbers.includes(c)).length : 0} / 25
-                             </span>
-                           </div>
-                         </div>
-                       </div>
-                     )}
-                     <div className="d-flex justify-content-between align-items-center mb-3">
+                  {/* PLAYERS PANEL */}
+                  <section className="cyber-panel players-panel overflow-hidden">
+                    {/* CONFERÊNCIA DE CARTELA */}
+                    {selectedPlayer && (
+<div className="mb-4 p-3 rounded-4 bounce-in" style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid var(--primary)', boxShadow: '0 0 20px rgba(0,242,255,0.1)' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <h3 className="text-light fw-bold m-0" style={{ fontFamily: 'var(--font-syncopate)', fontSize: '0.75rem' }}>
+                            VERIFICANDO: <span className="text-info">{selectedPlayer.name.toUpperCase()}</span>
+                          </h3>
+                          <button className="btn btn-sm btn-outline-danger py-0 px-2" style={{ fontSize: '0.7rem' }} onClick={(e) => { e.stopPropagation(); setSelectedPlayer(null); }}>✕ FECHAR</button>
+                        </div>
+
+                        <div className="board-glass p-2">
+                          {selectedPlayer.card ? (
+                            gameMode === 90 ? (
+                              // 90-ball: vintage layout in admin panel
+                              <div className="bingo90-card bingo90-admin">
+                                <div className="bingo90-header">
+                                  {[1,2,3,4,5,6,7,8,9].map(n => (
+                                    <div key={n} className="bingo90-col-header">{n === 1 ? '1-9' : `${(n-1)*10}+`}</div>
+                                  ))}
+                                </div>
+                                <div className="bingo90-body">
+                                  {selectedPlayer.card.map((row, rIdx) => (
+                                    <div key={rIdx} className="bingo90-row">
+                                      {row.map((cell, cIdx) => {
+                                        const isEmpty = cell === null || cell === undefined;
+                                        const isCalled = !isEmpty && calledNumbers.includes(cell);
+                                        return (
+                                          <div
+                                            key={cIdx}
+                                            className={`bingo90-cell ${isEmpty ? 'bingo90-empty' : ''} ${isCalled ? 'bingo90-marked' : ''}`}
+                                          >
+                                            {isEmpty ? '' : cell}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="bingo90-footer">
+                                  <span>ACERTOS: {selectedPlayer.card.flat().filter(c => c !== null && c !== undefined && calledNumbers.includes(c)).length} / 15</span>
+                                  <span>{selectedPlayer.name.toUpperCase()}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              // 30 / 75 ball: standard table
+                              <table className="w-100 text-center m-0 p-0" style={{ tableLayout: 'fixed', borderSpacing: '3px', borderCollapse: 'separate' }}>
+                                <thead>
+                                  <tr>
+                                    {(gameMode === 30 ? ["1", "2", "3"] : ["B", "I", "N", "G", "O"]).map(l => (
+                                      <th key={l} className="text-primary" style={{ fontSize: '0.75rem', fontFamily: 'var(--font-syncopate)', paddingBottom: '5px' }}>{l}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {selectedPlayer.card.map((row, rIdx) => (
+                                    <tr key={rIdx}>
+                                      {row.map((cell, cIdx) => {
+                                        const isFree = cell === "FREE";
+                                        const isCalled = isFree || calledNumbers.includes(cell);
+                                        return (
+                                          <td key={cIdx} className="p-0">
+                                            <div style={{
+                                              width: '100%',
+                                              aspectRatio: '1/1',
+                                              fontSize: '0.8rem',
+                                              fontWeight: 'bold',
+                                              borderRadius: '6px',
+                                              background: isCalled ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                              color: isCalled ? '#000' : 'rgba(255,255,255,0.3)',
+                                              border: isCalled ? '1px solid var(--primary)' : '1px solid rgba(255,255,255,0.1)',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              boxShadow: isCalled ? '0 0 10px rgba(0,242,255,0.2)' : 'none'
+                                            }}>
+                                              {isFree ? "⭐" : cell}
+                                            </div>
+                                          </td>
+                                        );
+                                      })}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )
+                          ) : (
+                            <p className="text-muted small text-center m-0 py-3">Dados da cartela não disponíveis.</p>
+                          )}
+                          {gameMode !== 90 && (
+                            <div className="mt-2 text-center">
+                              <span className="badge bg-dark border border-secondary text-light py-1 px-3" style={{ fontSize: '0.7rem' }}>
+                                ACERTOS: {selectedPlayer.card ? selectedPlayer.card.flat().filter(c => c === "FREE" || calledNumbers.includes(c)).length : 0} / {gameMode === 30 ? 9 : 25}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <div className="d-flex justify-content-between align-items-center mb-3">
                       <h2 className="text-light fw-bold fs-6 opacity-75 m-0" style={{ fontFamily: 'var(--font-syncopate)' }}>
                         👥 {players.length} JOGADORES <span className="text-primary small" style={{ fontSize: '0.6rem' }}>(Clique para conferir)</span>
                       </h2>
@@ -840,9 +909,9 @@ export default function AdminDashboard() {
                     <div className="d-flex flex-wrap gap-2" style={{ maxHeight: '180px', overflowY: 'auto' }}>
                       {players.length > 0 ? (
                         players.map((p, i) => (
-                          <span 
-                            key={i} 
-                            className={`badge border text-light px-2 py-2 ${selectedPlayer?.name === p.name ? 'border-info bg-info text-dark' : 'bg-dark border-secondary'}`} 
+                          <span
+                            key={i}
+                            className={`badge border text-light px-2 py-2 ${selectedPlayer?.name === p.name ? 'border-info bg-info text-dark' : 'bg-dark border-secondary'}`}
                             style={{ borderRadius: '16px', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s' }}
                             onClick={() => setSelectedPlayer(p)}
                           >

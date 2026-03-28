@@ -62,19 +62,114 @@ router.post('/create', async (req, res) => {
 });
 
 const generateCard = (maxMode) => {
-  const colSize = Math.max(5, Math.ceil(maxMode / 5));
+  if (maxMode === 30) {
+    const card = [];
+    const colSize = 10;
+    for (let c = 0; c < 3; c++) {
+      let colNums = [];
+      while (colNums.length < 3) {
+        let rn = Math.floor(Math.random() * colSize) + c * colSize + 1;
+        if (!colNums.includes(rn)) colNums.push(rn);
+      }
+      colNums.sort((a,b) => a - b);
+      card.push(colNums);
+    }
+    const rows = [];
+    for (let r = 0; r < 3; r++) {
+      rows.push([card[0][r], card[1][r], card[2][r]]);
+    }
+    return rows;
+  }
+
+  if (maxMode === 90) {
+    const colRanges = [
+      [1, 9], [10, 19], [20, 29], [30, 39], [40, 49],
+      [50, 59], [60, 69], [70, 79], [80, 90]
+    ];
+    
+    let grid;
+    let isValid = false;
+    
+    while (!isValid) {
+      grid = Array.from({ length: 3 }, () => Array(9).fill(null));
+      
+      // Determine columns with 2 numbers (6 cols) and 1 number (3 cols) -> total 15
+      const colCounts = new Array(9).fill(1);
+      const extraIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8].sort(() => Math.random() - 0.5).slice(0, 6);
+      extraIndices.forEach(idx => colCounts[idx] = 2);
+      
+      const assignments = []; // Array of [row, col]
+      
+      for (let c = 0; c < 9; c++) {
+        const rowsForCol = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, colCounts[c]);
+        rowsForCol.forEach(r => assignments.push([r, c]));
+      }
+      
+      // Randomly redistribute if row counts are not 5, 5, 5
+      // This is a simple shuffling check
+      let attempt = 0;
+      while (attempt < 100) {
+        const rowSums = [0, 0, 0];
+        assignments.forEach(([r, c]) => rowSums[r]++);
+        
+        if (rowSums.every(s => s === 5)) {
+          isValid = true;
+          break;
+        }
+        
+        // If not balanced, reshuffle row assignments within columns
+        // (Move one number to a different row if that row has space)
+        assignments.forEach((asgn, i) => {
+          const r = asgn[0];
+          const c = asgn[1];
+          if (rowSums[r] > 5) {
+            const targetRow = [0, 1, 2].find(tr => tr !== r && rowSums[tr] < 5 && !assignments.some(a => a[0] === tr && a[1] === c));
+            if (targetRow !== undefined) {
+              rowSums[r]--;
+              rowSums[targetRow]++;
+              assignments[i][0] = targetRow;
+            }
+          }
+        });
+        attempt++;
+      }
+      
+      if (isValid) {
+        // Fill grid and sort columns
+        assignments.forEach(([r, c]) => {
+          grid[r][c] = true; // Placeholder
+        });
+        
+        for (let c = 0; c < 9; c++) {
+          const [min, max] = colRanges[c];
+          const count = colCounts[c];
+          const nums = [];
+          while (nums.length < count) {
+            const n = Math.floor(Math.random() * (max - min + 1)) + min;
+            if (!nums.includes(n)) nums.push(n);
+          }
+          nums.sort((a, b) => a - b);
+          
+          let ni = 0;
+          for (let r = 0; r < 3; r++) {
+            if (grid[r][c] === true) {
+              grid[r][c] = nums[ni++];
+            }
+          }
+        }
+      }
+    }
+    
+    return grid;
+  }
+
+  // DEFAULT (75-ball)
+  const colSize = 15;
   const newCartela = [];
   for (let c = 0; c < 5; c++) {
     let colNums = [];
     while (colNums.length < 5) {
-      let maxLimit = Math.min((c + 1) * colSize, maxMode);
-      let minLimit = c * colSize + 1;
-      let range = maxLimit - minLimit + 1;
-      if (range < 5) {
-          minLimit = Math.max(1, maxMode - 4);
-          maxLimit = maxMode;
-      }
-      const rn = Math.floor(Math.random() * (maxLimit - minLimit + 1)) + minLimit;
+      let rn = Math.floor(Math.random() * colSize) + c * colSize + 1;
       if (!colNums.includes(rn)) colNums.push(rn);
     }
     colNums.sort((a,b) => a - b);
@@ -97,7 +192,7 @@ router.post('/:roomId/join', async (req, res) => {
     if (!room) return res.status(404).json({ message: 'Sala não encontrada.' });
     
     let player = room.players.find(p => p.deviceId === deviceId);
-    if (player) return res.json({ name: player.name, card: player.card, messages: room.messages || [] });
+    if (player) return res.json({ name: player.name, card: player.card, gameMode: room.gameMode, messages: room.messages || [] });
     
     if (room.isLocked) return res.status(403).json({ message: 'A sala foi trancada pelo organizador e não aceita mais jogadores.' });
 
@@ -109,7 +204,7 @@ router.post('/:roomId/join', async (req, res) => {
     room.players.push({ name, deviceId, card });
     await room.save();
     
-    res.json({ name, card, messages: room.messages || [] });
+    res.json({ name, card, gameMode: room.gameMode, messages: room.messages || [] });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
