@@ -13,6 +13,7 @@ const RoomSchema = new mongoose.Schema({
   }],
   status: { type: String, enum: ['waiting', 'playing', 'finished'], default: 'waiting' },
   isLocked: { type: Boolean, default: false },
+  isPaused: { type: Boolean, default: false },
   messages: [{
     sender: String,
     text: String,

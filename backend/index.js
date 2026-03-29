@@ -104,13 +104,13 @@ io.on('connection', (socket) => {
     let msgText = '';
     let msgType = 'system-' + data.type;
     const nameStr = data.playerName.toUpperCase();
-    
-    if (data.type === 'bingo') msgText = `🏆 BINGO! ${nameStr} GRITOU BINGO!`;
-    else if (data.type === 'linha') msgText = `⚡ LINHA! ${nameStr} FEZ LINHA!`;
-    else if (data.type === 'coluna') msgText = `🎯 COLUNA! ${nameStr} PREENCHEU UMA COLUNA!`;
-    else if (data.type === 'diagonal') msgText = `⚔️ DIAGONAL! ${nameStr} FEZ DIAGONAL!`;
-    else if (data.type === 'extremidades') msgText = `🔲 EXTREMIDADES! ${nameStr} CERCOU AS EXTREMIDADES!`;
-    
+
+    if (data.type === 'bingo') msgText = `🏆 ${nameStr} Gritou BINGO!`;
+    else if (data.type === 'linha') msgText = `⚡ ${nameStr} Fez LINHA!`;
+    else if (data.type === 'coluna') msgText = `🎯 ${nameStr} Preencheu uma COLUNA!`;
+    else if (data.type === 'diagonal') msgText = `⚔️ ${nameStr} Fez DIAGONAL!`;
+    else if (data.type === 'extremidades') msgText = `🔲 ${nameStr} Cercou as EXTREMIDADES!`;
+
     const msg = {
       sender: 'SISTEMA',
       text: msgText,
@@ -120,13 +120,13 @@ io.on('connection', (socket) => {
     };
     io.to(data.roomId).emit('chat_message', msg);
     io.to(data.roomId).emit('special_called', data);
-    
+
     try {
       const Room = require('./models/Room');
       if (data.roomId) {
         await Room.updateOne({ roomId: data.roomId }, { $push: { messages: msg } });
       }
-    } catch(e) {}
+    } catch (e) { }
   });
 
   // Chat message regular
@@ -137,7 +137,7 @@ io.on('connection', (socket) => {
       if (data.roomId) {
         await Room.updateOne({ roomId: data.roomId }, { $push: { messages: data } });
       }
-    } catch(e) {}
+    } catch (e) { }
   });
 
   // Start new game / Reset room
@@ -147,6 +147,11 @@ io.on('connection', (socket) => {
 
   socket.on('close_room', (roomId) => {
     io.to(roomId).emit('room_closed');
+  });
+
+  socket.on('room_status_update', (data) => {
+    // data: { roomId, isLocked, status }
+    io.to(data.roomId).emit('room_status_update', data);
   });
 
   socket.on('disconnect', () => {

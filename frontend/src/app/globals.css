@@ -101,6 +101,23 @@
       }
 
       /* Sequential Reordering for Mobile (Disabled as it conflicted with global layout) */
+      /* MOBILE OPTIMIZATIONS FOR PLAYER CARD */
+      @media (max-width: 576px) {
+        .cyber-panel.player-card {
+          border-radius: 16px !important;
+        }
+        .player-card td {
+          padding: 2px !important;
+        }
+        .player-card .visor-compact {
+          min-height: 70px !important;
+          padding: 8px !important;
+        }
+        .player-card .chat-panel {
+          height: 180px !important;
+          margin-top: 1.5rem !important;
+        }
+      }
       /* header { order: 1 !important; } */
       /* .hero-stage { order: 2 !important; } */
       /* ... */
@@ -310,14 +327,14 @@
       backdrop-filter: blur(24px);
       border-radius: 16px;
       border: 1px solid var(--border);
-      padding: 24px;
+      padding: 16px;
       box-shadow: var(--shadow);
       overflow-x: auto;
     }
 
     table {
       width: 100%;
-      border-spacing: 8px;
+      border-spacing: 6px;
       border-collapse: separate;
     }
 
@@ -325,7 +342,7 @@
       font-family: var(--font-syncopate), sans-serif;
       color: var(--primary);
       font-size: 0.8rem;
-      padding-bottom: 12px;
+      padding-bottom: 6px;
       opacity: 0.8;
     }
 
@@ -333,8 +350,8 @@
       background: var(--glass-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 40px;
       text-align: center;
       font-weight: 700;
       font-size: 1.1rem;

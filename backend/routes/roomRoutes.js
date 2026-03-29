@@ -211,11 +211,14 @@ router.post('/:roomId/join', async (req, res) => {
 });
 
 router.put('/:roomId/lock', async (req, res) => {
-  const { isLocked } = req.body;
+  const { isLocked, status } = req.body;
   try {
+    const update = { isLocked };
+    if (status) update.status = status;
+    
     const room = await Room.findOneAndUpdate(
       { roomId: req.params.roomId },
-      { $set: { isLocked } },
+      { $set: update },
       { returnDocument: 'after' }
     );
     if (!room) return res.status(404).json({ message: 'Sala não encontrada.' });

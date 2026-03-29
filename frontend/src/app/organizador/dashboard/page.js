@@ -19,6 +19,8 @@ export default function AdminDashboard() {
   const [autoMode, setAutoMode] = useState(0);
   const [players, setPlayers] = useState([]); // Nova lista de jogadores
   const [isLocked, setIsLocked] = useState(false); // Trancar sala
+  const [isPaused, setIsPaused] = useState(false);
+  const [roomStatus, setRoomStatus] = useState("waiting"); // Status Geral (waiting, playing, finished)
   const [selectedPlayer, setSelectedPlayer] = useState(null); // Jogador sendo conferido
   const isLockedRef = useRef(isLocked);
 
@@ -28,6 +30,27 @@ export default function AdminDashboard() {
 
   const [messages, setMessages] = useState([]); // Mensagens do Chat
   const [chatInput, setChatInput] = useState(""); // Input de chat
+  const [theme, setTheme] = useState("dark");
+
+  useEffect(() => {
+    // Only apply theme management if roomId is present (room view)
+    if (roomId) {
+      const savedTheme = localStorage.getItem("masterbingo-theme") || "dark";
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } else {
+      // Default back to dark when outside the room view
+      document.documentElement.setAttribute('data-theme', "dark");
+    }
+  }, [roomId]);
+
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    setTheme(newTheme);
+    localStorage.setItem("masterbingo-theme", newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
   const [voices, setVoices] = useState([]);
   const [selectedVoiceType, setSelectedVoiceType] = useState('male');
   const [frontendUrl, setFrontendUrl] = useState('');
@@ -88,28 +111,31 @@ export default function AdminDashboard() {
         setMessages(prev => [...prev, msg]);
       });
       socket.on('special_called', (data) => {
-        // Usamos o Ref para checar o valor ATUAL e travamos a execução dupla imediatamente
-        if (isLockedRef.current === true) {
-          isLockedRef.current = false; // Bloqueia execuções subsequentes instantaneamente
+        // Se alguém gritar BINGO e a sala estiver aberta, nós pausamos imediatamente
+        if (isLockedRef.current === false) {
+          isLockedRef.current = true; // Trava o Ref imediatamente
 
           // Trava no backend
           fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${roomId}/lock`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isLocked: false })
+            body: JSON.stringify({ isLocked: true, isPaused: true })
           });
 
-          setIsLocked(false);
+          setIsLocked(true);
+          setIsPaused(true);
           setAutoMode(0);
 
           if (socket) {
             socket.emit('chat_message', {
               sender: 'SISTEMA',
-              text: '⏸ BINGO PARADO AUTOMATICAMENTE. Aguardem Verificação...',
+              text: '🚨 BINGO!!! Pausado para Verificação...',
               type: 'system',
               time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
               roomId
             });
+            // Notifica jogadores da mudança de status
+            socket.emit('room_status_update', { roomId, isLocked: true, isPaused: true, status: 'playing' });
           }
         }
       });
@@ -151,6 +177,8 @@ export default function AdminDashboard() {
       setPlayers([]);
       setSelectedPlayer(null);
       setIsLocked(false);
+      setIsPaused(false);
+      setRoomStatus("waiting");
       setMessages([
         { sender: 'SISTEMA', text: '🟢 Sala Aberta!', type: 'system', time: new Date().toLocaleTimeString('pt-BR', { hour12: false }) },
         { sender: 'SISTEMA', text: '⏳ Aguardando Jogadores...', type: 'system', time: new Date().toLocaleTimeString('pt-BR', { hour12: false }) }
@@ -217,6 +245,8 @@ export default function AdminDashboard() {
     setPlayers([]);
     setSelectedPlayer(null);
     setIsLocked(false);
+    setIsPaused(false);
+    setRoomStatus("waiting");
     setMessages([
       { sender: 'SISTEMA', text: '🟢 Sala Aberta!', type: 'system', time: new Date().toLocaleTimeString('pt-BR', { hour12: false }) },
       { sender: 'SISTEMA', text: '⏳ Aguardando Jogadores...', type: 'system', time: new Date().toLocaleTimeString('pt-BR', { hour12: false }) }
@@ -234,6 +264,8 @@ export default function AdminDashboard() {
         setRoomId(data.roomId);
         setGameMode(data.gameMode);
         setIsLocked(data.isLocked || false);
+        setIsPaused(data.isPaused || false);
+        setRoomStatus(data.status || "waiting");
         setMessages([]); // Mensagens não são persistidas a princípio
 
         // Mapear drawnNumbers do banco para o estado local
@@ -267,30 +299,70 @@ export default function AdminDashboard() {
 
   const toggleLock = async () => {
     try {
+      let targetLocked = isLocked; 
+      let targetPaused = isPaused;
+      let targetStatus = roomStatus;
+      
+      if (roomStatus === 'waiting') {
+         targetLocked = true;
+         targetPaused = false;
+         targetStatus = 'playing';
+      } else {
+         targetPaused = !isPaused;
+         targetLocked = true; // Mantém fechada ao jogar/pausar
+      }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${roomId}/lock`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isLocked: !isLocked })
+        body: JSON.stringify({ isLocked: targetLocked, isPaused: targetPaused, status: targetStatus })
       });
+
       if (res.ok) {
-        setIsLocked(!isLocked);
-        if (!isLocked && socket) {
+        setIsLocked(targetLocked);
+        setIsPaused(targetPaused);
+        setRoomStatus(targetStatus);
+
+        if (socket) {
           socket.emit('chat_message', {
             sender: 'SISTEMA',
-            text: '🎯 BINGO EM ANDAMENTO. Boa sorte a Todos!!!',
+            text: targetPaused ? '⏸ Pausado. Aguardem...' : '🎯 Em Jogo. Boa sorte a Todos!!!',
             type: 'system',
             time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
             roomId
           });
-        } else if (isLocked && socket) {
-          socket.emit('chat_message', {
-            sender: 'SISTEMA',
-            text: '⏸ BINGO PARADO. Aguardem...',
-            type: 'system',
-            time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
-            roomId
-          });
+          socket.emit('room_status_update', { roomId, isLocked: targetLocked, isPaused: targetPaused, status: targetStatus });
         }
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const finishGame = async () => {
+    try {
+      // Mudar status no backend para finished
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${roomId}/lock`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isLocked: true, status: 'finished' })
+      });
+      
+      if (res.ok) {
+        setRoomStatus('finished');
+        setIsLocked(true);
+        setAutoMode(0);
+        setSelectedPlayer(null);
+
+        if (socket) {
+          socket.emit('chat_message', {
+            sender: 'SISTEMA',
+            text: '🏁 BINGO ENCERRADO! OBRIGADO POR JOGAR!',
+            type: 'system',
+            time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
+            roomId
+          });
+          socket.emit('room_status_update', { roomId, isLocked: true, status: 'finished' });
+        }
+        toast.success("Jogo Encerrado com Sucesso!");
       }
     } catch (e) { console.error(e); }
   };
@@ -384,14 +456,16 @@ export default function AdminDashboard() {
           fontSize: 'clamp(1.2rem, 4vw, 2.2rem)',
           fontWeight: '900',
           letterSpacing: '8px',
-          color: locked ? 'var(--accent)' : 'var(--primary)',
-          textShadow: locked ? '0 0 30px var(--accent)' : '0 0 30px var(--primary)',
+          color: isPaused ? '#ff6b6b' : 'var(--primary)',
+          textShadow: isPaused ? '0 0 30px rgba(255,107,107,0.4)' : '0 0 30px var(--primary)',
           textTransform: 'uppercase',
           fontFamily: 'var(--font-syncopate)',
           lineHeight: '1.4',
           display: 'block'
         }}>
-          {locked ? <>BINGO EM<br />ANDAMENTO</> : <>AGUARDANDO<br />JOGADORES</>}
+          {isPaused ? <>BINGO<br />PAUSADO</> : 
+           (roomStatus === 'waiting' ? <>AGUARDANDO<br />JOGADORES</> : 
+            (roomStatus === 'playing' ? <>BINGO EM<br />ANDAMENTO</> : <>BINGO MASTER</>))}
         </span>
       </div>
     );
@@ -463,13 +537,18 @@ export default function AdminDashboard() {
               {/* TAG 2: INICIAR SALA */}
               <Col lg={7} className="order-2 order-lg-1">
                 <div className="board-glass p-4 p-md-5 text-center d-flex flex-column align-items-center justify-content-center h-100" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', minHeight: '380px' }}>
-                  <div className="mb-4 text-info opacity-75">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" fill="currentColor" viewBox="0 0 16 16">
-                      <path d="M4.5 5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM3 4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm2 7a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm-1.5-.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z" />
-                      <path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H2z" />
-                    </svg>
+                  <div className="mb-4">
+                    <img
+                      src="/mb_logo_01.png"
+                      alt="Master Bingo Logo"
+                      style={{
+                        height: '64px',
+                        width: 'auto',
+                        objectFit: 'contain'
+                      }}
+                    />
                   </div>
-                  <h2 className="text-light fw-bold mb-3" style={{ fontFamily: 'var(--font-syncopate)', fontSize: 'clamp(1rem, 3vw, 1.5rem)' }}>ABRIR NOVA SALA</h2>
+                  <h2 className="text-light fw-bold mb-3" style={{ fontFamily: 'var(--font-syncopate)', fontSize: 'clamp(1rem, 3vw, 1.5rem)' }}>ABRIR NOVA SALA DE BINGO</h2>
                   <p className="text-light opacity-60 mb-2" style={{ maxWidth: '380px' }}>
                     Selecione a quantidade de dezenas e inicie uma nova sala para seus jogadores.
                   </p>
@@ -477,24 +556,24 @@ export default function AdminDashboard() {
                   <div className="mb-4 w-100" style={{ maxWidth: '600px' }}>
                     <div className="d-flex flex-column gap-3">
                       {[
-                        { 
-                          mode: 30, 
-                          title: "Bingo 30 Bolas", 
-                          desc: "Versão rápida e dinâmica, jogada em cartelas 3x3 com números de 1 a 30, onde vence quem completar toda a cartela primeiro em poucos minutos." 
+                        {
+                          mode: 30,
+                          title: "Bingo 30 Bolas",
+                          desc: "Versão rápida e dinâmica, jogada em cartelas 3x3 com números de 1 a 30, onde vence quem completar toda a cartela primeiro em poucos minutos."
                         },
-                        { 
-                          mode: 75, 
-                          title: "Bingo 75 Bolas", 
-                          desc: "Formato popular com cartelas 5x5 e espaço central livre, no qual os jogadores precisam completar padrões específicos (linhas, colunas ou formas) para ganhar." 
+                        {
+                          mode: 75,
+                          title: "Bingo 75 Bolas",
+                          desc: "Formato popular com cartelas 5x5 e espaço central livre, no qual os jogadores precisam completar padrões específicos (linhas, colunas ou formas) para ganhar."
                         },
-                        { 
-                          mode: 90, 
-                          title: "Bingo 90 Bolas", 
-                          desc: "Versão tradicional com cartelas de 3 linhas e 15 números, jogada em etapas de prêmio — 1 linha, 2 linhas e cartela cheia — oferecendo uma experiência mais longa e social." 
+                        {
+                          mode: 90,
+                          title: "Bingo 90 Bolas",
+                          desc: "Versão tradicional com cartelas de 3 linhas e 15 números, jogada em etapas de prêmio — 1 linha, 2 linhas e cartela cheia — oferecendo uma experiência mais longa e social."
                         }
                       ].map(item => (
-                        <div 
-                          key={item.mode} 
+                        <div
+                          key={item.mode}
                           className={`p-3 border rounded-4 text-start pointer-event ${gameMode === item.mode ? 'border-primary bg-primary bg-opacity-10' : 'border-secondary opacity-75'}`}
                           style={{ cursor: 'pointer', transition: 'all 0.2s', background: gameMode === item.mode ? 'rgba(14,165,233,0.1)' : 'transparent' }}
                           onClick={() => setGameMode(item.mode)}
@@ -516,7 +595,7 @@ export default function AdminDashboard() {
                     style={{ fontSize: '1.2rem', letterSpacing: '2px', boxShadow: 'var(--shadow)', maxWidth: '420px' }}
                     onClick={createRoom}
                   >
-                    🎱 INICIAR SALA ({gameMode} Bolas)
+                    🎱 ABRIR SALA ({gameMode} Bolas)
                   </button>
                   <p className="mt-3 mb-0 text-light opacity-40 small">
                     Um código e QR Code serão gerados automaticamente.
@@ -546,9 +625,20 @@ export default function AdminDashboard() {
                               {r.status === 'playing' ? '● EM JOGO' : '● AGUARDANDO'}
                             </div>
                           </div>
-                          <div className="d-flex gap-2 mt-2">
-                            <button className="btn-cyber btn-primary-cyber btn-sm fw-bold flex-grow-1 py-2" onClick={() => resumeRoom(r.roomId)}>▶ Retomar</button>
-                            <button className="btn-cyber btn-sm fw-bold py-2" style={{ background: 'transparent', border: '1px solid var(--secondary)', color: 'var(--secondary)', borderRadius: '8px', padding: '6px 14px' }} onClick={() => closeRoomManually(r.roomId)}>✕ Fechar</button>
+                          <div className="d-flex gap-2 mt-3">
+                            <button className="btn-cyber btn-primary-cyber btn-sm fw-bold flex-grow-1 py-2" style={{ fontSize: '0.85rem' }} onClick={() => resumeRoom(r.roomId)}>▶ Retomar</button>
+                            <button
+                              className="btn-cyber btn-sm fw-bold py-2 px-3"
+                              style={{
+                                background: 'rgba(220, 53, 69, 0.1)',
+                                border: '1px solid rgba(220, 53, 69, 0.5)',
+                                color: '#ff6b6b',
+                                fontSize: '0.85rem'
+                              }}
+                              onClick={() => closeRoomManually(r.roomId)}
+                            >
+                              ✕ Fechar
+                            </button>
                           </div>
                         </div>
                       ))
@@ -583,17 +673,32 @@ export default function AdminDashboard() {
                 <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">ONLINE</span>
               </div>
 
-              <button className="btn btn-outline-info fw-bold px-4 py-2" style={{ borderRadius: '12px' }} onClick={() => {
-                setRoomId(null);
-              }}>PAINEL DO ORGANIZADOR</button>
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  className="btn btn-outline-secondary border-0 d-flex align-items-center justify-content-center"
+                  style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)' }}
+                  onClick={toggleTheme}
+                  title="Alternar Tema"
+                >
+                  {theme === "dark" ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+                  )}
+                </button>
+
+                <button className="btn btn-outline-info fw-bold px-4 py-2" style={{ borderRadius: '12px' }} onClick={() => {
+                  setRoomId(null);
+                }}>PAINEL DO ORGANIZADOR</button>
+              </div>
             </div>
 
             <Row className="g-4">
               {/* LADO ESQUERDO: SORTEIO E TABELA */}
               <Col lg={12} xl={5}>
-                <main>
+                <main className="d-flex flex-column gap-3">
                   <div
-                    className="hero-stage mb-4"
+                    className="hero-stage"
                     style={{
                       minHeight: '260px',
                       padding: '20px'
@@ -611,12 +716,21 @@ export default function AdminDashboard() {
 
                         {/* BOTÃO JOGAR/PARAR (GRANDE) */}
                         <Button
-                          variant={isLocked ? "danger" : "outline-info"}
-                          className={`btn-cyber w-100 fw-bold mb-2 ${isLocked ? '' : 'glow-blue'}`}
+                          variant={(roomStatus === 'waiting' || isPaused) ? "success" : "danger"}
+                          className="btn-cyber w-100 fw-bold mb-2 shadow-sm"
                           onClick={toggleLock}
-                          style={{ height: '60px', fontSize: '1.2rem', letterSpacing: '2px' }}
+                          style={{ 
+                            height: '60px', 
+                            fontSize: '1.1rem', 
+                            letterSpacing: '2px', 
+                            textShadow: '0 0 10px rgba(0,0,0,0.5)',
+                            backgroundColor: (roomStatus === 'waiting' || isPaused) ? '#198754' : '#dc3545',
+                            borderColor: (roomStatus === 'waiting' || isPaused) ? '#198754' : '#dc3545',
+                            boxShadow: (roomStatus === 'waiting' || isPaused) ? '0 0 20px rgba(25, 135, 84, 0.3)' : '0 0 20px rgba(220, 53, 69, 0.3)',
+                            color: '#fff'
+                          }}
                         >
-                          {isLocked ? '⏹ PARAR BINGO' : '▶ JOGAR BINGO'}
+                          {roomStatus === 'waiting' ? '▶ JOGAR BINGO' : (isPaused ? '▶ RETOMAR BINGO' : '⏸ PAUSAR BINGO')}
                         </Button>
 
                         {/* 1. NOVO BINGO */}
@@ -626,17 +740,17 @@ export default function AdminDashboard() {
                         <div className="d-flex gap-2">
                           <Button
                             variant="outline-warning"
-                            className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                            className={`flex-grow-1 btn-cyber py-2 ${(roomStatus !== 'playing' || isPaused) ? 'opacity-25' : ''}`}
                             onClick={() => startAutoDraw(5000)}
-                            disabled={!isLocked || autoMode !== 0}
+                            disabled={roomStatus !== 'playing' || isPaused || autoMode !== 0}
                           >
                             ⚡ Auto 5s
                           </Button>
                           <Button
                             variant="outline-success"
-                            className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                            className={`flex-grow-1 btn-cyber py-2 ${(roomStatus !== 'playing' || isPaused) ? 'opacity-25' : ''}`}
                             onClick={() => startAutoDraw(8000)}
-                            disabled={!isLocked || autoMode !== 0}
+                            disabled={roomStatus !== 'playing' || isPaused || autoMode !== 0}
                           >
                             🐢 Auto 8s
                           </Button>
@@ -646,7 +760,7 @@ export default function AdminDashboard() {
                         {autoMode > 0 ? (
                           <button className="btn-cyber border-danger text-danger bg-transparent rounded-4 w-100 py-3 mt-1 mb-1 fw-bold" onClick={() => setAutoMode(0)}>⏹ Parar Sorteio Auto</button>
                         ) : (
-                          <button disabled={!isLocked} className={`btn-cyber rounded-4 w-100 py-3 mt-1 mb-1 fw-bold ${!isLocked ? 'opacity-50' : 'btn-primary-cyber'}`} onClick={drawNumber} style={{ fontSize: '1.2rem', cursor: !isLocked ? 'not-allowed' : 'pointer' }}>SORTEAR BOLA</button>
+                          <button disabled={roomStatus !== 'playing' || isPaused} className={`btn-cyber rounded-4 w-100 py-3 mt-1 mb-1 fw-bold ${(roomStatus !== 'playing' || isPaused) ? 'opacity-50' : 'btn-primary-cyber'}`} onClick={drawNumber} style={{ fontSize: '1.2rem', cursor: (roomStatus !== 'playing' || isPaused) ? 'not-allowed' : 'pointer' }}>SORTEAR BOLA</button>
                         )}
 
                         {/* 4. VOZ 1 | VOZ 2 | MUDO */}
@@ -685,32 +799,71 @@ export default function AdminDashboard() {
                     <div className="control-stack d-flex flex-column gap-3">
                       {/* JOGAR / PARAR (GRANDE) */}
                       <Button
-                        variant={isLocked ? "danger" : "outline-info"}
-                        className={`btn-cyber w-100 fw-bold ${isLocked ? '' : 'glow-blue'}`}
+                        variant={(roomStatus === 'waiting' || isPaused) ? "success" : "danger"}
+                        className="btn-cyber w-100 fw-bold shadow-sm"
                         onClick={toggleLock}
-                        style={{ height: '60px', fontSize: '1.2rem', letterSpacing: '2px' }}
+                        style={{ 
+                          height: '70px', 
+                          fontSize: '1.3rem', 
+                          letterSpacing: '2px', 
+                          textShadow: '0 0 10px rgba(0,0,0,0.5)',
+                          backgroundColor: (roomStatus === 'waiting' || isPaused) ? '#198754' : '#dc3545',
+                          borderColor: (roomStatus === 'waiting' || isPaused) ? '#198754' : '#dc3545',
+                          boxShadow: (roomStatus === 'waiting' || isPaused) ? '0 0 20px rgba(25, 135, 84, 0.4)' : '0 0 20px rgba(220, 53, 69, 0.4)',
+                          color: '#fff'
+                        }}
                       >
-                        {isLocked ? '⏹ PARAR BINGO' : '▶ JOGAR BINGO'}
+                        {roomStatus === 'waiting' ? '▶ JOGAR BINGO' : (isPaused ? '▶ RETOMAR BINGO' : '⏸ PAUSAR BINGO')}
                       </Button>
 
-                      <button className="btn btn-outline-light btn-cyber py-2 w-100" onClick={resetGame}>
-                        ♻️ Novo Bingo
-                      </button>
+                      <div className="d-flex gap-2">
+                        <button className="btn btn-outline-light btn-cyber py-2 flex-grow-1" style={{ fontSize: '0.8rem' }} onClick={resetGame}>
+                          ♻️ Novo Bingo
+                        </button>
+                        
+                        <button 
+                          className={`btn btn-cyber py-2 flex-grow-1 ${isLocked ? 'border-danger text-danger' : 'border-success text-success'}`} 
+                          style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.05)' }} 
+                          onClick={async () => {
+                            const nextLock = !isLocked;
+                            const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:5000'}/api/rooms/${roomId}/lock`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ isLocked: nextLock, isPaused, status: roomStatus })
+                            });
+                            if (res.ok) {
+                              setIsLocked(nextLock);
+                              if (socket) {
+                                socket.emit('chat_message', {
+                                  sender: 'SISTEMA',
+                                  text: nextLock ? '🔒 Sala FECHADA para novos jogadores.' : '🔓 Sala ABERTA para novos jogadores.',
+                                  type: 'system',
+                                  time: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
+                                  roomId
+                                });
+                                socket.emit('room_status_update', { roomId, isLocked: nextLock, isPaused, status: roomStatus });
+                              }
+                            }
+                          }}
+                        >
+                          {isLocked ? '🔒 Fechada' : '🔓 Aberta'}
+                        </button>
+                      </div>
 
                       <div className="d-flex gap-2">
                         <Button
                           variant="outline-warning"
-                          className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                          className={`flex-grow-1 btn-cyber py-2 ${(roomStatus !== 'playing' || isPaused) ? 'opacity-25' : ''}`}
                           onClick={() => startAutoDraw(5000)}
-                          disabled={!isLocked || autoMode !== 0}
+                          disabled={roomStatus !== 'playing' || isPaused || autoMode !== 0}
                         >
                           ⚡ Auto 5s
                         </Button>
                         <Button
                           variant="outline-success"
-                          className={`flex-grow-1 btn-cyber py-2 ${!isLocked ? 'opacity-25' : ''}`}
+                          className={`flex-grow-1 btn-cyber py-2 ${(roomStatus !== 'playing' || isPaused) ? 'opacity-25' : ''}`}
                           onClick={() => startAutoDraw(8000)}
-                          disabled={!isLocked || autoMode !== 0}
+                          disabled={roomStatus !== 'playing' || isPaused || autoMode !== 0}
                         >
                           🐢 Auto 8s
                         </Button>
@@ -721,7 +874,7 @@ export default function AdminDashboard() {
                           ⏹ Parar Sorteio Auto
                         </button>
                       ) : (
-                        <button disabled={!isLocked} className={`btn-cyber rounded-4 w-100 py-3 mt-2 mb-2 fw-bold ${!isLocked ? 'opacity-50' : 'btn-primary-cyber'}`} onClick={drawNumber} style={{ fontSize: '1.2rem', cursor: !isLocked ? 'not-allowed' : 'pointer' }}>
+                        <button disabled={roomStatus !== 'playing' || isPaused} className={`btn-cyber rounded-4 w-100 py-3 mt-2 mb-2 fw-bold ${(roomStatus !== 'playing' || isPaused) ? 'opacity-50' : 'btn-primary-cyber'}`} onClick={drawNumber} style={{ fontSize: '1.2rem', cursor: (roomStatus !== 'playing' || isPaused) ? 'not-allowed' : 'pointer' }}>
                           SORTEAR BOLA
                         </button>
                       )}
@@ -774,17 +927,26 @@ export default function AdminDashboard() {
               {/* LADO DIREITO: CHAT E JOGADORES */}
               <Col lg={6} xl={4}>
                 <aside className="d-flex flex-column gap-3 h-100">
-                  {/* CHAT PANEL */}
-                  <section className="cyber-panel chat-panel d-flex flex-column" style={{ height: '440px' }}>
-                    <h2 className="text-light fw-bold fs-6 opacity-75 mb-3 pt-2" style={{ fontFamily: 'var(--font-syncopate)' }}>CHAT DA SALA</h2>
-                    <div ref={chatMessagesRef} className="flex-grow-1 overflow-auto bg-dark p-2 rounded-4 mb-2 shadow-inner" style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
-                      {messages.length > 0 ? messages.map((m, i) => (
-                        <div key={i} className={`mb-2 small ${m.type === 'admin' ? 'text-info' : m.type.startsWith('system') ? 'text-warning fw-bold' : 'text-light'}`}>
-                          <span className="opacity-50" style={{ fontSize: '0.7rem' }}>[{m.time}] </span>
-                          {m.sender !== 'SISTEMA' && <strong>{m.sender}: </strong>}
-                          <span>{m.text}</span>
-                        </div>
-                      )) : (
+                  {/* CHAT PANEL OTIMIZADO */}
+                  <section className="cyber-panel chat-panel d-flex flex-column" style={{ height: '440px', padding: '8px' }}>
+                    <h2 className="text-light fw-bold fs-6 opacity-75 mb-2 pt-1 ps-1" style={{ fontFamily: 'var(--font-syncopate)', fontSize: '0.75rem' }}>BATE-PAPO</h2>
+                    <div ref={chatMessagesRef} className="flex-grow-1 overflow-auto bg-dark p-1 rounded-4 mb-2 shadow-inner" style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                      {messages.length > 0 ? messages.map((m, i) => {
+                        const isAdmin = m.type === 'admin' || m.sender === 'SISTEMA';
+                        const isBingo = m.type === 'system-bingo' || m.type === 'system-success' || m.text?.includes('🏆') || m.text?.toLowerCase().includes('bingo');
+                        const isSystem = m.type?.startsWith('system') && !isBingo;
+                        return (
+                          <div key={i} className={`mb-2 small d-flex align-items-baseline text-start w-100 ${isBingo ? 'text-success fw-bold' : isAdmin ? 'text-info' : isSystem ? 'text-warning fw-bold' : 'text-light'}`}>
+                            <span className="opacity-40 me-1" style={{ fontSize: '0.7rem' }}>[{m.time}] </span>
+                            {(m.sender === 'SISTEMA' || m.type === 'admin') ? (
+                              <img src="/mb_logo_01.png" style={{ height: '11px', verticalAlign: 'middle', marginRight: '6px', flexShrink: 0 }} alt="Logo" />
+                            ) : (
+                              <strong style={{ marginRight: '6px', whiteSpace: 'nowrap' }}>{m.sender}: </strong>
+                            )}
+                            <span className="flex-grow-1 text-wrap overflow-hidden" style={{ wordBreak: 'break-word', lineHeight: '1.2' }}>{m.text}</span>
+                          </div>
+                        );
+                      }) : (
                         <p className="text-muted small text-center mt-4 pt-2 border-top border-secondary opacity-50">Sala de bate-papo.</p>
                       )}
                     </div>
@@ -805,7 +967,7 @@ export default function AdminDashboard() {
                   <section className="cyber-panel players-panel overflow-hidden">
                     {/* CONFERÊNCIA DE CARTELA */}
                     {selectedPlayer && (
-<div className="mb-4 p-3 rounded-4 bounce-in" style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid var(--primary)', boxShadow: '0 0 20px rgba(0,242,255,0.1)' }}>
+                      <div className="mb-4 p-3 rounded-4 bounce-in" style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid var(--primary)', boxShadow: '0 0 20px rgba(0,242,255,0.1)' }}>
                         <div className="d-flex justify-content-between align-items-center mb-3">
                           <h3 className="text-light fw-bold m-0" style={{ fontFamily: 'var(--font-syncopate)', fontSize: '0.75rem' }}>
                             VERIFICANDO: <span className="text-info">{selectedPlayer.name.toUpperCase()}</span>
@@ -819,8 +981,8 @@ export default function AdminDashboard() {
                               // 90-ball: vintage layout in admin panel
                               <div className="bingo90-card bingo90-admin">
                                 <div className="bingo90-header">
-                                  {[1,2,3,4,5,6,7,8,9].map(n => (
-                                    <div key={n} className="bingo90-col-header">{n === 1 ? '1-9' : `${(n-1)*10}+`}</div>
+                                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+                                    <div key={n} className="bingo90-col-header">{n === 1 ? '1-9' : `${(n - 1) * 10}+`}</div>
                                   ))}
                                 </div>
                                 <div className="bingo90-body">
@@ -898,6 +1060,70 @@ export default function AdminDashboard() {
                               </span>
                             </div>
                           )}
+
+                          {/* BOTÕES DE AÇÃO - CONFERÊNCIA REDESENHADOS */}
+                          <div className="d-flex flex-column gap-2 mt-3 w-100">
+                             <div className="d-flex gap-2">
+                                <button
+                                  className="btn btn-cyber btn-success fw-bold flex-grow-1 py-3"
+                                  style={{ borderRadius: '12px', fontSize: '0.8rem', border: '1px solid #198754', textShadow: '0 0 10px rgba(0,0,0,0.5)' }}
+                                  onClick={() => {
+                                    if (socket) {
+                                      socket.emit('chat_message', {
+                                        roomId,
+                                        sender: 'SISTEMA',
+                                        text: `🏆 Cartela Conferida: ${selectedPlayer.name.toUpperCase()} (Segue o Jogo!)`,
+                                        type: 'system',
+                                        time: new Date().toLocaleTimeString('pt-BR', { hour12: false })
+                                      });
+                                    }
+                                    setSelectedPlayer(null);
+                                    // Retoma o jogo automaticamente
+                                    if (isLocked) toggleLock();
+                                  }}
+                                >
+                                  ✅ Conferiu - Segue o Jogo
+                                </button>
+                                
+                                <button
+                                  className="btn btn-cyber fw-bold flex-grow-1 py-3"
+                                  style={{ borderRadius: '12px', fontSize: '0.8rem', border: '1px solid var(--primary)', background: 'var(--primary)', color: '#000' }}
+                                  onClick={() => {
+                                    if (socket) {
+                                      socket.emit('chat_message', {
+                                        roomId,
+                                        sender: 'SISTEMA',
+                                        text: `🏆 BINGO VALIDADO PARA ${selectedPlayer.name.toUpperCase()}!`,
+                                        type: 'system',
+                                        time: new Date().toLocaleTimeString('pt-BR', { hour12: false })
+                                      });
+                                    }
+                                    finishGame();
+                                  }}
+                                >
+                                  🏆 Conferiu - Bingo Encerrado
+                                </button>
+                             </div>
+                             
+                             <button
+                               className="btn btn-cyber btn-outline-danger btn-sm fw-bold w-100 py-2 opacity-75"
+                               style={{ borderRadius: '10px', fontSize: '0.7rem' }}
+                               onClick={() => {
+                                 if (socket) {
+                                   socket.emit('chat_message', {
+                                     roomId,
+                                     sender: 'SISTEMA',
+                                     text: `❌ Cartela ${selectedPlayer.name.toUpperCase()} não conferiu. Voltamos ao jogo!`,
+                                     type: 'system',
+                                     time: new Date().toLocaleTimeString('pt-BR', { hour12: false })
+                                   });
+                                 }
+                                 setSelectedPlayer(null);
+                               }}
+                             >
+                               ✕ NÃO CONFERIU
+                             </button>
+                          </div>
                         </div>
                       </div>
                     )}
